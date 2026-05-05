@@ -1,0 +1,9 @@
+# Ignore all files in the data folder
+/data/*
+!/data/.gitkeep
+
+# Ignore OS and Python artifacts
+.DS_Store
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
