@@ -157,190 +157,195 @@ def get_stats(df, var):
 # =================================================================
 
 def plot_seasonal_cycles_comparison(
-    df_plot,
-    variable,
+    df_fluxnet,
+    df_ecoco3,
+    variables,                     # list of 3 variables (GPP, ET, WUE)
+    y_labels=None,
+    group_type='Veg',
     veg_color_palette=veg_color_palette,
     koppen_label_color_palette=koppen_label_color_palette,
-    output_base=None,
-    frac=0.2, 
+    frac=0.2,
+    ylims=[[ -0.5, 13], [0, 5], [0, 5]],
     valid_veg=None,
-    valid_kg=None
+    valid_kg=None,
+    output_path=None
 ):
 
-    df_plot = df_plot.copy()
-    df_plot['DOY'] = df_plot['TIMESTAMP'].dt.dayofyear
+    assert len(variables) == 3, "Please provide exactly 3 variables"
 
-    # ======================================================
-    # DAILY MEANS PER SITE
-    # ======================================================
-    df_plot = df_plot[
-    df_plot['Veg'].isin(valid_veg) &
-    df_plot['kg_label'].isin(valid_kg)]
+    # Copy + add DOY
+    df_ecoco3 = df_ecoco3.copy()
+    df_fluxnet = df_fluxnet.copy()
+    df_ecoco3['DOY'] = df_ecoco3['TIMESTAMP'].dt.dayofyear
+    df_fluxnet['DOY'] = df_fluxnet['TIMESTAMP'].dt.dayofyear
 
-    daily_site = (
-        df_plot
-        .groupby(['DOY', 'Site', 'Veg', 'kg_label'])[variable]
-        .mean()
-        .reset_index()
+    # -----------------------------------------
+    # Select grouping + color palette
+    # -----------------------------------------
+    if group_type == 'Veg':
+        group_col = 'Veg'
+        palette = veg_color_palette
+        valid_groups = valid_veg
+        title_suffix = 'Vegetation'
+    elif group_type == 'kg_label':
+        group_col = 'kg_label'
+        palette = koppen_label_color_palette
+        valid_groups = valid_kg
+        title_suffix = 'Climate'
+    else:
+        raise ValueError("group_type must be 'Veg' or 'kg_label'")
+
+    # Filter
+    if valid_groups is not None:
+        df_ecoco3 = df_ecoco3[df_ecoco3[group_col].isin(valid_groups)]
+        df_fluxnet = df_fluxnet[df_fluxnet[group_col].isin(valid_groups)]
+
+    # -----------------------------------------
+    # Create figure (3 rows × 2 columns), share y per row
+    # -----------------------------------------
+    fig, axes = plt.subplots(
+        nrows=3, ncols=2, figsize=(16, 12), 
+        sharex=True, sharey='row'  # <- share y-axis for columns
+    )
+    fig.suptitle(
+        f"Seasonal cycles by {title_suffix}: FLUXNET vs ECOCO3",
+        fontsize=28
     )
 
-    # ======================================================
-    # SEASONAL MEANS (VEGETATION & KÖPPEN)
-    # ======================================================
+    panel_labels = ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)']
+    datasets = [(df_fluxnet, "FLUXNET"), (df_ecoco3, "ECOCO3")]
 
-    veg_doy = (
-        df_plot[df_plot['Veg'].isin(valid_veg)]
-        .groupby(['DOY', 'Veg'])[variable]
-        .mean()
-        .reset_index()
-        .groupby('Veg')
-        .apply(apply_lowess, variable=variable, frac=frac)
-    )
+    label_idx = 0
+    for i, variable in enumerate(variables):
+        for j, (df_plot, col_title) in enumerate(datasets):
+            ax = axes[i, j]
 
-    kg_doy = (
-        df_plot[df_plot['kg_label'].isin(valid_kg)]
-        .groupby(['DOY', 'kg_label'])[variable]
-        .mean()
-        .reset_index()
-        .groupby('kg_label')
-        .apply(apply_lowess, variable=variable, frac=frac)
-    )
-
-    # ======================================================
-    # TWO-PANEL SEASONAL CYCLE FIGURE
-    # ======================================================
-    fig, axes = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
-
-    # (a) Vegetation
-    for veg, d in veg_doy.groupby('Veg'):
-        axes[0].plot(
-            d['DOY'],
-            d[f'{variable}_smooth'],
-            color=veg_color_palette.get(veg, 'gray'),
-            label=veg,
-            linewidth=3
-        )
-    axes[0].set_title(f'(a) Seasonal cycle of {variable} by vegetation')
-    axes[0].set_ylabel(variable)
-    axes[0].set_xlim(1, 366)
-    axes[0].legend(ncol=2, fontsize=8, frameon=False)
-
-    # (b) Köppen climate
-    for kg, d in kg_doy.groupby('kg_label'):
-        axes[1].plot(
-            d['DOY'],
-            d[f'{variable}_smooth'],
-            color=koppen_label_color_palette.get(kg, 'gray'),
-            label=kg,
-            linewidth=3
-        )
-    axes[1].set_title(f'(b) Seasonal cycle of {variable} by climate')
-    axes[1].set_xlabel('Day of Year')
-    axes[1].set_ylabel(variable)
-    axes[1].set_xlim(1, 366)
-    axes[1].legend(ncol=2, fontsize=8, frameon=False)
-
-    plt.tight_layout()
-    plt.savefig(output_base / f"seasonal_{variable}_all.png", dpi=300)
-    plt.show()
-
-    # ======================================================
-    # SITE-LEVEL SEASONAL CYCLES BY VEGETATION
-    # ======================================================
-    veg_out = output_base / "veg" / variable
-    veg_out.mkdir(parents=True, exist_ok=True)
-
-    for veg, dveg in daily_site.groupby('Veg'):
-        fig, ax = plt.subplots(figsize=(10, 5))
-
-        for site, dsite in dveg.groupby('Site'):
-            ax.scatter(
-                dsite['DOY'],
-                dsite[variable],
-                color=veg_color_palette.get(veg, 'gray'),
-                alpha=0.4,
-                s=15
-            )
-
-            mean_doy = (
-                dveg.groupby('DOY')[variable]
+            doy_group = (
+                df_plot
+                .groupby(['DOY', group_col])[variable]
                 .mean()
                 .reset_index()
-                .sort_values('DOY')
+                .groupby(group_col)
+                .apply(apply_lowess, variable=variable, frac=frac)
             )
 
-            mean_smooth = sm.nonparametric.lowess(
-                endog=mean_doy[variable],
-                exog=mean_doy['DOY'],
-                frac=0.2,
-                return_sorted=False
+            for group, d in doy_group.groupby(group_col):
+                ax.plot(
+                    d['DOY'],
+                    d[f'{variable}_smooth'],
+                    color=palette.get(group, 'gray'),
+                    linewidth=7,
+                    label=group
+                )
+
+            # Panel label
+            ax.text(
+                0.02, 0.92, panel_labels[label_idx],
+                transform=ax.transAxes,
+                fontsize=14,
+                fontweight='bold',
+                va='top',
+                ha='left'
             )
+            label_idx += 1
 
-            ax.plot(
-                mean_doy['DOY'],
-                mean_smooth,
-                color='black',
-                linewidth=3,
-            )
+            # Titles (top row only)
+            if i == 0:
+                ax.set_title(col_title, fontsize=24)
 
+            # Y labels (left column only)
+            if j == 0:
+                ax.set_ylabel(y_labels[i] if y_labels else variable, fontsize=22)
+                ax.tick_params(axis='y', labelsize=20)
 
-        ax.set_title(f"Seasonal cycle of {variable} – {veg}")
-        ax.set_xlabel("Day of Year")
-        ax.set_ylabel(variable)
+            ax.set_xlim(1, 366)
+            ax.set_ylim(ylims[i])
+
+            # Legend only once
+            if i == 0 and j == 0:
+                ax.legend(ncol=2, fontsize=16, frameon=False)
+
+    # X label bottom row
+    for ax in axes[-1, :]:
+        ax.set_xlabel('Day of Year', fontsize=22)
+        ax.tick_params(axis='x', labelsize=20)
+
+    plt.tight_layout()
+
+    if output_path is not None:
+        plt.savefig(output_path, dpi=300)
+
+    plt.show()
+
+def plot_seasonal_cycles_comparison_new(
+    df_fluxnet,
+    df_ecoco3,
+    variables,
+    y_labels,
+    group_type='Veg',
+    frac=0.2,
+    ylims=None,
+    valid_veg=None,
+    valid_kg=None,
+    output_path=None
+):
+    palette = veg_color_palette if group_type == 'Veg' else koppen_label_color_palette
+
+    def _prep(df):
+        df = df.copy()
+        df['DOY'] = df['TIMESTAMP'].dt.dayofyear
+        if valid_veg is not None:
+            df = df[df['Veg'].isin(valid_veg)]
+        if valid_kg is not None:
+            df = df[df['kg_label'].isin(valid_kg)]
+        return df
+
+    flux  = _prep(df_fluxnet)
+    ecoco = _prep(df_ecoco3)
+
+    groups = sorted(set(flux[group_type].dropna()) & set(ecoco[group_type].dropna()))
+
+    n_vars = len(variables)
+    fig, axes = plt.subplots(n_vars, 1, figsize=(12, 4 * n_vars), sharex=True)
+    if n_vars == 1:
+        axes = [axes]
+
+    panel_labels = [f'({chr(97+i)})' for i in range(n_vars)]
+
+    for i, (var, ylabel) in enumerate(zip(variables, y_labels)):
+        ax = axes[i]
+
+        for grp in groups:
+            color = palette.get(grp, 'gray')
+
+            for df, linestyle, alpha in [(flux, '-', 1.0), (ecoco, '--', 0.85)]:
+                sub = df[df[group_type] == grp].groupby('DOY')[var].mean().reset_index().sort_values('DOY')
+                if sub.empty or len(sub) < 5:
+                    continue
+                smoothed = sm.nonparametric.lowess(
+                    endog=sub[var], exog=sub['DOY'], frac=frac, return_sorted=False
+                )
+                label = f'{grp} {"FLUXNET" if linestyle == "-" else "ECOCO3"}' if i == 0 else None
+                ax.plot(sub['DOY'], smoothed, color=color, linestyle=linestyle,
+                        linewidth=2, label=label, alpha=alpha)
+
+        ax.set_ylabel(ylabel, fontsize=13)
         ax.set_xlim(1, 366)
-        ax.legend(frameon=False)
+        ax.grid(alpha=0.3)
+        if ylims is not None and i < len(ylims):
+            ax.set_ylim(ylims[i])
+        ax.text(0.02, 0.93, panel_labels[i], transform=ax.transAxes,
+                fontsize=13, fontweight='bold', va='top')
+        if i == 0:
+            ax.legend(ncol=2, fontsize=8, frameon=False)
 
-        plt.tight_layout()
-        plt.savefig(veg_out / f"seasonal_{variable}_Veg_{veg}.png", dpi=300)
-        plt.close()
-
-    # ======================================================
-    # SITE-LEVEL SEASONAL CYCLES BY KÖPPEN CLIMATE
-    # ======================================================
-    kg_out = output_base / "koppen" / variable
-    kg_out.mkdir(parents=True, exist_ok=True)
-
-    for kg, dkg in daily_site.groupby('kg_label'):
-        fig, ax = plt.subplots(figsize=(10, 5))
-
-        for site, dsite in dkg.groupby('Site'):
-            ax.scatter(
-                dsite['DOY'],
-                dsite[variable],   # ✅ fixed
-                color=koppen_label_color_palette.get(kg, 'gray'),
-                alpha=0.4,
-                s=15
-            )
-
-        mean_doy = (
-            dkg.groupby('DOY')[variable]
-            .mean()
-            .reset_index()
-            .sort_values('DOY')
-        )   
-        mean_smooth = sm.nonparametric.lowess(
-            endog=mean_doy[variable],
-            exog=mean_doy['DOY'],
-            frac=0.2,
-            return_sorted=False
-        )   
-
-        ax.plot(
-            mean_doy['DOY'],
-            mean_smooth,
-            color='black',
-            linewidth=3,
-        )
-
-        ax.set_title(f"Seasonal cycle of {variable} – {kg}")
-        ax.set_xlabel("Day of Year")
-        ax.set_ylabel(variable)
-        ax.set_xlim(1, 366)
-        ax.legend(frameon=False)
-
-        plt.tight_layout()
-        plt.savefig(kg_out / f"seasonal_{variable}_KG_{kg}.png", dpi=300)
-        plt.close()
+    axes[-1].set_xlabel('Day of Year', fontsize=13)
+    plt.suptitle(f'Seasonal cycles by {group_type} — FLUXNET (solid) vs ECOCO3 (dashed)',
+                 fontsize=14)
+    plt.tight_layout()
+    if output_path is not None:
+        plt.savefig(output_path, dpi=300)
+    plt.show()
 
 def plot_merged_diurnal_cycles(
     df_flux,
@@ -501,7 +506,8 @@ def plot_merged_diurnal_cycles(
     axes[-1].set_xlabel('Hour of Day', fontsize=20)
 
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300)
+    if output_path is not None:
+        plt.savefig(output_path, dpi=300)
 
     plt.show()
 
@@ -1295,3 +1301,223 @@ def plot_data_coverage_map_sites(df, valid_veg=None, valid_kg=None):
     plt.suptitle('FLUXNET Site Coverage Summary', fontsize=20)
     plt.tight_layout()
     plt.show()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helpers shared by the two summary figures below
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _load_supp(path):
+    df = pd.read_csv(path, header=[0, 1])
+    df.columns = ['Variable', 'Group',
+                  'pct_ECOCO',   'pct_FLUX',
+                  'ci25_ECOCO',  'ci25_FLUX',
+                  'ci975_ECOCO', 'ci975_FLUX',
+                  'delta_ECOCO', 'delta_FLUX',
+                  'nd_ECOCO',    'nd_FLUX',
+                  'nnd_ECOCO',   'nnd_FLUX']
+    return df
+
+def _parse_h(t):
+    if pd.isna(t):
+        return np.nan
+    h, m = map(int, str(t).strip().split(':'))
+    return h + m / 60.0
+
+def _compute_shifts(df, group_col):
+    rows = []
+    for (var, grp), g in df.groupby(['Variable', group_col]):
+        d  = g[g['SPEI Bin'] == 'Drought']
+        nd = g[g['SPEI Bin'] == 'Non-Drought']
+        if d.empty or nd.empty:
+            continue
+        rows.append({
+            'Variable': var, 'Group': grp,
+            'shift_ECOCO': _parse_h(d['ECOCO'].values[0])   - _parse_h(nd['ECOCO'].values[0]),
+            'shift_FLUX':  _parse_h(d['FLUXNET'].values[0]) - _parse_h(nd['FLUXNET'].values[0]),
+        })
+    return pd.DataFrame(rows)
+
+_ECO_COLOR   = '#4DAC26'
+_FLUX_COLOR  = '#7B2D8B'
+_VARIABLES   = ['GPP', 'ET', 'WUE']
+_UNITS       = {'GPP': 'µmol CO₂ m⁻² s⁻¹', 'ET': 'W m⁻²', 'WUE': 'gC kg⁻¹ H₂O'}
+_MARKER_SIZE = 14
+_CAP_SIZE    = 6
+_LINE_WIDTH  = 3.0
+_ELINE_WIDTH = 2.8
+_VLINE_WIDTH = 2.8
+_STAR_SIZE   = 44
+
+def _sig_star(lo, hi):
+    return '*' if (lo > 0 or hi < 0) else ''
+
+_RCPARAMS = {
+    'font.size':         44,
+    'axes.titlesize':    50,
+    'axes.labelsize':    44,
+    'xtick.labelsize':   40,
+    'ytick.labelsize':   40,
+    'legend.fontsize':   42,
+    'axes.linewidth':    2.5,
+    'xtick.major.width': 2.2,
+    'ytick.major.width': 2.2,
+    'font.weight':       'normal',
+}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Figure: Midday Δ forest plots (suppression magnitude + 95 % CI)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def plot_drought_suppression_summary(
+    sup_veg_path='tables/suppression_summary_midday.csv',
+    sup_kg_path='tables/suppression_summary_midday_kg.csv',
+    output_path='figures/WUE_analysis/drought_suppression_summary.png'
+):
+    import os
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    sup_veg = _load_supp(sup_veg_path)
+    sup_kg  = _load_supp(sup_kg_path)
+
+    GROUPINGS = [
+        ('By Vegetation Type', sup_veg),
+        ('By Climate Class',   sup_kg),
+    ]
+
+    with plt.rc_context(_RCPARAMS):
+        fig = plt.figure(figsize=(30, 24))
+        gs  = fig.add_gridspec(2, 3, hspace=0.5, wspace=0.75, height_ratios=[10, 3])
+        panel_labels = list('abcdef')
+        label_idx = 0
+
+        for row, (row_title, df) in enumerate(GROUPINGS):
+            for col, var in enumerate(_VARIABLES):
+                ax  = fig.add_subplot(gs[row, col])
+                sub = df[df['Variable'] == var].copy().sort_values('delta_FLUX', ascending=True)
+                n   = len(sub)
+                y_flux = np.arange(n) * 1.8
+                y_eco  = y_flux + 0.7
+
+                for i, (_, r) in enumerate(sub.iterrows()):
+                    xerr_f = [[max(r.delta_FLUX  - r.ci25_FLUX,  0)],
+                              [max(r.ci975_FLUX  - r.delta_FLUX,  0)]]
+                    ax.errorbar(r.delta_FLUX, y_flux[i], xerr=xerr_f,
+                                fmt='s', color=_FLUX_COLOR, markersize=_MARKER_SIZE,
+                                capsize=_CAP_SIZE, lw=_LINE_WIDTH,
+                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                    s = _sig_star(r.ci25_FLUX, r.ci975_FLUX)
+                    if s:
+                        ax.text(r.delta_FLUX, y_flux[i] + 0.22, s,
+                                ha='center', fontsize=_STAR_SIZE, color=_FLUX_COLOR, zorder=4)
+
+                    xerr_e = [[max(r.delta_ECOCO - r.ci25_ECOCO,  0)],
+                              [max(r.ci975_ECOCO - r.delta_ECOCO, 0)]]
+                    ax.errorbar(r.delta_ECOCO, y_eco[i], xerr=xerr_e,
+                                fmt='o', color=_ECO_COLOR, markersize=_MARKER_SIZE,
+                                capsize=_CAP_SIZE, lw=_LINE_WIDTH,
+                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                    s = _sig_star(r.ci25_ECOCO, r.ci975_ECOCO)
+                    if s:
+                        ax.text(r.delta_ECOCO, y_eco[i] + 0.22, s,
+                                ha='center', fontsize=_STAR_SIZE, color=_ECO_COLOR, zorder=4)
+
+                ax.axvline(0, color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
+                ax.set_yticks(y_flux + 0.35)
+                ax.set_yticklabels(sub['Group'].tolist())
+                ax.set_xlabel(f'Midday Δ [{_UNITS[var]}]')
+                ax.set_title(var)
+                ax.grid(axis='x', alpha=0.3, lw=1.5)
+                ax.spines[['top', 'right']].set_visible(False)
+                ax.tick_params(axis='both', width=2.2, length=6)
+                ax.text(-0.15, 1.03, f'({panel_labels[label_idx]})',
+                        transform=ax.transAxes, fontsize=54, fontweight='bold')
+                label_idx += 1
+                if col == 0:
+                    ax.text(-0.50, 0.5, row_title, transform=ax.transAxes,
+                            fontsize=40, rotation=90, va='center', ha='center')
+
+        eco_p  = mpatches.Patch(color=_ECO_COLOR,  label='ECOCO3')
+        flux_p = mpatches.Patch(color=_FLUX_COLOR, label='FLUXNET')
+        sig_p  = plt.Line2D([], [], color='gray', marker='$*$', linestyle='None',
+                            markersize=22, label='* CI excludes 0')
+        fig.legend(handles=[eco_p, flux_p, sig_p], loc='upper right',
+                   frameon=False, bbox_to_anchor=(1.05, 1.05))
+        fig.suptitle(
+            'Midday Drought Suppression (95 % Bootstrap CI)\n'
+            'Drought: SPEI < −1.5  |  Non-Drought: SPEI > 0',
+            fontsize=44, y=1.02)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.show()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Figure: Centroid timing shift under drought (Drought − Non-Drought, hours)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def plot_centroid_shift_summary(
+    cent_veg_path='tables/centroid_summary.csv',
+    cent_kg_path='tables/centroid_summary_kg.csv',
+    output_path='figures/WUE_analysis/centroid_shift_summary.png'
+):
+    import os
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    cent_veg = pd.read_csv(cent_veg_path)
+    cent_kg  = pd.read_csv(cent_kg_path)
+    shift_veg = _compute_shifts(cent_veg, 'veg')
+    shift_kg  = _compute_shifts(cent_kg,  'kg_label')
+
+    SHIFT_GROUPINGS = [
+        ('By Vegetation Type', shift_veg),
+        ('By Climate Class',   shift_kg),
+    ]
+
+    with plt.rc_context(_RCPARAMS):
+        fig = plt.figure(figsize=(30, 24))
+        gs  = fig.add_gridspec(2, 3, hspace=0.5, wspace=0.75, height_ratios=[10, 3])
+        panel_labels = list('abcdef')
+        label_idx = 0
+
+        for row, (row_title, df) in enumerate(SHIFT_GROUPINGS):
+            for col, var in enumerate(_VARIABLES):
+                ax  = fig.add_subplot(gs[row, col])
+                sub = df[df['Variable'] == var].copy().sort_values('shift_FLUX', ascending=True)
+                n   = len(sub)
+                if n == 0:
+                    ax.set_visible(False)
+                    label_idx += 1
+                    continue
+
+                y_flux = np.arange(n) * 1.8
+                y_eco  = y_flux + 0.7
+
+                ax.barh(y_flux, sub['shift_FLUX'],  height=0.6, color=_FLUX_COLOR, alpha=0.85)
+                ax.barh(y_eco,  sub['shift_ECOCO'], height=0.6, color=_ECO_COLOR,  alpha=0.85)
+
+                ax.axvline(0, color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
+                ax.set_yticks(y_flux + 0.35)
+                ax.set_yticklabels(sub['Group'].tolist())
+                ax.set_xlabel('Centroid shift [hrs]\n(Drought − Non-Drought)')
+                ax.set_title(var)
+                ax.grid(axis='x', alpha=0.3, lw=1.5)
+                ax.spines[['top', 'right']].set_visible(False)
+                ax.tick_params(axis='both', width=2.2, length=6)
+                ax.text(-0.15, 1.03, f'({panel_labels[label_idx]})',
+                        transform=ax.transAxes, fontsize=54, fontweight='bold')
+                label_idx += 1
+                if col == 0:
+                    ax.text(-0.50, 0.5, row_title, transform=ax.transAxes,
+                            fontsize=40, rotation=90, va='center', ha='center')
+
+        eco_p  = mpatches.Patch(color=_ECO_COLOR,  alpha=0.85, label='ECOCO3')
+        flux_p = mpatches.Patch(color=_FLUX_COLOR, alpha=0.85, label='FLUXNET')
+        fig.legend(handles=[eco_p, flux_p], loc='upper right',
+                   frameon=False, bbox_to_anchor=(1, 1))
+        fig.suptitle(
+            'Diurnal Centroid Timing Shift Under Drought\n'
+            'Positive = later peak under drought  |  Negative = earlier peak',
+            fontsize=44, y=1.02)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.show()
