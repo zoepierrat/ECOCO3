@@ -1,9 +1,17 @@
-# Ignore all files in the data folder
-/data/*
-!/data/.gitkeep
+# Ignore all data files
+/data/**/*.csv
+/data/**/*.nc
+/data/**/*.h5
+/data/**/*.hdf5
 
-# Ignore OS and Python artifacts
+# Python and OS
 .DS_Store
 __pycache__/
 *.pyc
+*.pyo
 .ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp

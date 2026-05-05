@@ -59,25 +59,104 @@ koppen_label_color_palette = {
 }
 
 
-# ======================================================
-# APPLY LOWESS SMOOTHING (GENERIC)
-# ======================================================
+# =================================================================
+# DEPENDENCIES FOR USED FUNCTIONS
+# =================================================================
+
 def apply_lowess(group, variable, frac=0.2):
     """Apply LOWESS smoothing to a variable per group, ensuring DOY is sorted."""
     group = group.sort_values('DOY')
-
     smoothed = sm.nonparametric.lowess(
         endog=group[variable],
         exog=group['DOY'],
         frac=frac,
         return_sorted=False
     )
-
     group[f'{variable}_smooth'] = smoothed
     return group
 
 
-def plot_seasonal_cycles(
+def get_group_letters(tukey_result):
+    res_df = pd.DataFrame(
+        tukey_result._results_table.data[1:],
+        columns=tukey_result._results_table.data[0]
+    )
+    groups = sorted(list(set(res_df['group1']).union(res_df['group2'])))
+    sig = {(row['group1'], row['group2']): row['reject']
+           for _, row in res_df.iterrows()}
+    sig.update({(b,a): v for (a,b),v in sig.items()})
+    letters = {g: '' for g in groups}
+    letter_sets = []
+    for g in groups:
+        placed = False
+        for i, s in enumerate(letter_sets):
+            if all(not sig.get((g, other), False) for other in s):
+                s.add(g)
+                letters[g] += chr(97+i)
+                placed = True
+        if not placed:
+            letter_sets.append(set([g]))
+            letters[g] += chr(97+len(letter_sets)-1)
+    return letters
+
+
+def plot_violin(df_wue_daily, grouping_category, ax, title):
+    if grouping_category == 'Veg':
+        color_map = veg_color_palette
+    elif grouping_category == 'kg_label':
+        color_map = koppen_label_color_palette
+    formula = f'WUE ~ C({grouping_category})'
+    model = ols(formula, data=df_wue_daily).fit()
+    anova_result = sm.stats.anova_lm(model, typ=2)
+    mc = MultiComparison(df_wue_daily['WUE'], df_wue_daily[grouping_category])
+    tukey_result = mc.tukeyhsd()
+    group_letters = get_group_letters(tukey_result)
+    median_wue_order = (
+        df_wue_daily.groupby(grouping_category)["WUE"]
+        .median()
+        .sort_values(ascending=False)
+        .index
+        .tolist()
+    )
+    sns.violinplot(x=grouping_category, y='WUE', data=df_wue_daily, palette=color_map, 
+                    inner='quartile', order=median_wue_order ,scale='area', cut=0, ax=ax)
+    for i, vegetation in enumerate(median_wue_order):
+        y = -0.5
+        letter = group_letters[vegetation]
+        ax.text(i+0.2, y, letter, ha='center', va='bottom', fontsize=16, fontweight='bold')
+    ax.set_title(title, fontsize=20)
+    ax.set_xlabel(grouping_category, fontsize=16)
+    ax.set_ylabel('WUE [gC kg$^{-1}$H$_2$O]', fontsize=16)
+    ax.set_ylim(0, 6)
+    ax.tick_params(axis='x', rotation=45, labelsize=16)
+    ax.tick_params(axis='y', labelsize=16)
+
+
+def compute_diurnal_centroid(df, hour_col='Hour', weight_col='WUE'):
+    weights = df[weight_col].values
+    hours = df[hour_col].values
+    if np.sum(weights) == 0:
+        return np.nan
+    return np.sum(hours * weights) / np.sum(weights)
+
+
+def hour_to_timestamp(hour_float):
+    h = int(hour_float)
+    m = int((hour_float - h) * 60)
+    return f"{h:02d}:{m:02d}"
+
+
+def get_stats(df, var):
+    avg = df.groupby('Hour')[var].mean().reset_index()
+    std = df.groupby('Hour')[var].std().reset_index()
+    return pd.merge(avg, std, on='Hour', suffixes=('_avg', '_std'))
+
+
+# =================================================================
+# USED FUNCTIONS (8 functions)
+# =================================================================
+
+def plot_seasonal_cycles_comparison(
     df_plot,
     variable,
     veg_color_palette=veg_color_palette,
@@ -262,416 +341,6 @@ def plot_seasonal_cycles(
         plt.tight_layout()
         plt.savefig(kg_out / f"seasonal_{variable}_KG_{kg}.png", dpi=300)
         plt.close()
-
-def get_group_letters(tukey_result):
-    res_df = pd.DataFrame(
-        tukey_result._results_table.data[1:],
-        columns=tukey_result._results_table.data[0]
-    )
-
-    groups = sorted(list(set(res_df['group1']).union(res_df['group2'])))
-
-    # Build significance matrix
-    sig = {(row['group1'], row['group2']): row['reject']
-           for _, row in res_df.iterrows()}
-    sig.update({(b,a): v for (a,b),v in sig.items()})
-
-    letters = {g: '' for g in groups}
-    letter_sets = []
-
-    for g in groups:
-        placed = False
-        for i, s in enumerate(letter_sets):
-            if all(not sig.get((g, other), False) for other in s):
-                s.add(g)
-                letters[g] += chr(97+i)
-                placed = True
-        if not placed:
-            letter_sets.append(set([g]))
-            letters[g] += chr(97+len(letter_sets)-1)
-
-    return letters
-
-# Function to handle the ANOVA, Tukey HSD, and plotting
-def plot_violin(df_wue_daily, grouping_category, ax, title):
-    if grouping_category == 'Veg':
-        color_map = veg_color_palette
-    elif grouping_category == 'kg_label':
-        color_map = koppen_label_color_palette
-
-    formula = f'WUE ~ C({grouping_category})'
-    model = ols(formula, data=df_wue_daily).fit()
-    anova_result = sm.stats.anova_lm(model, typ=2)
-    
-    mc = MultiComparison(df_wue_daily['WUE'], df_wue_daily[grouping_category])
-    tukey_result = mc.tukeyhsd()
-
-    # --- Group Letters ---
-    group_letters = get_group_letters(tukey_result)
-
-    # --- Sorting by Median WUE ---
-    median_wue_order = (
-        df_wue_daily.groupby(grouping_category)["WUE"]
-        .median()
-        .sort_values(ascending=False)
-        .index
-        .tolist()
-    )
-
-    # --- Violin plot for the given dataset ---
-    sns.violinplot(x=grouping_category, y='WUE', data=df_wue_daily, palette=color_map, 
-                    inner='quartile', order=median_wue_order ,scale='area', cut=0, ax=ax)
-
-    # Add significance letters
-    for i, vegetation in enumerate(median_wue_order):
-        y = -0.5  # Adjust this for spacing
-        letter = group_letters[vegetation]
-        ax.text(i+0.2, y, letter, ha='center', va='bottom', fontsize=16, fontweight='bold')
-
-    ax.set_title(title, fontsize=20)
-    ax.set_xlabel(grouping_category, fontsize=16)
-    ax.set_ylabel('WUE [gC kg$^{-1}$H$_2$O]', fontsize=16)
-    ax.set_ylim(0, 6)  # Adjust as needed
-    ax.tick_params(axis='x', rotation=45, labelsize=16)
-    ax.tick_params(axis='y', labelsize=16)
-
-# ======================================================
-# --- Centroid Calculation Function ---
-def compute_diurnal_centroid(df, hour_col='Hour', weight_col='WUE'):
-    weights = df[weight_col].values
-    hours = df[hour_col].values
-    if np.sum(weights) == 0:
-        return np.nan
-    return np.sum(hours * weights) / np.sum(weights)
-
-def compute_centroids_from_hourly_avg(df, group_col):
-    hourly_avg = df.groupby(['Hour', group_col])['WUE'].mean().reset_index()
-    centroids = (
-        hourly_avg.groupby(group_col)
-                  .apply(lambda d: compute_diurnal_centroid(d, hour_col='Hour', weight_col='WUE'))
-                  .reset_index(name='Diurnal_Centroid')
-    )
-    return centroids, hourly_avg
-
-def plot_diurnal_wue(df, group_col=None, palette=None, title='ECOCO Summer WUE Diurnal Profile', legend_title=None):
-    if group_col == 'Veg':
-        palette = veg_color_palette
-    elif group_col == 'kg_label':
-        palette = koppen_label_color_palette
-
-    if group_col:
-        hourly_avg = df.groupby(['Hour', group_col])['WUE'].mean().reset_index()
-        hourly_std = df.groupby(['Hour', group_col])['WUE'].std().reset_index()
-        stats = pd.merge(hourly_avg, hourly_std, on=['Hour', group_col], suffixes=('_avg', '_std'))
-
-        # Compute centroids
-        centroids = (
-            hourly_avg.groupby(group_col)
-                      .apply(lambda d: compute_diurnal_centroid(d, hour_col='Hour', weight_col='WUE'))
-                      .reset_index(name='Diurnal_Centroid')
-        )
-
-    else:
-        hourly_avg = df.groupby('Hour')['WUE'].mean().reset_index()
-        hourly_std = df.groupby('Hour')['WUE'].std().reset_index()
-        stats = pd.merge(hourly_avg, hourly_std, on='Hour', suffixes=('_avg', '_std'))
-        centroids = pd.DataFrame({'Diurnal_Centroid': [compute_diurnal_centroid(df)]})
-
-    plt.figure(figsize=(12, 6))
-
-    if group_col:
-        sns.lineplot(
-            x='Hour',
-            y='WUE_avg',
-            hue=group_col,
-            data=stats,
-            marker='o',
-            linewidth=2,
-            palette=palette
-        )
-        # Plot centroids for each group without legend entries
-        for _, row in centroids.iterrows():
-            group = row[group_col]
-            centroid_hour = row['Diurnal_Centroid']
-            sub = stats[stats[group_col] == group]
-            wue_at_centroid = np.interp(centroid_hour, sub['Hour'], sub['WUE_avg'])
-            plt.scatter(centroid_hour, wue_at_centroid,
-                        color=palette.get(group, 'black'),
-                        s=150,
-                        edgecolor='black',
-                        zorder=10,
-                        marker='X',
-                        label='_nolegend_')  # omit from legend
-
-        # Add one black 'X' marker for centroid legend
-        plt.scatter([], [], color='black', marker='X', s=150, edgecolor='black', label='Diurnal centroid')
-
-    else:
-        sns.lineplot(
-            x='Hour',
-            y='WUE_avg',
-            data=stats,
-            marker='o',
-            color='blue',
-            label='Average WUE'
-        )
-        plt.fill_between(
-            stats['Hour'],
-            stats['WUE_avg'] - stats['WUE_std'],
-            stats['WUE_avg'] + stats['WUE_std'],
-            color='blue',
-            alpha=0.2,
-            label='WUE ± Std Dev'
-        )
-        # Plot centroid marker with legend
-        centroid_hour = centroids['Diurnal_Centroid'].iloc[0]
-        wue_at_centroid = np.interp(centroid_hour, stats['Hour'], stats['WUE_avg'])
-        plt.scatter(centroid_hour, wue_at_centroid,
-                    color='black',
-                    s=150,
-                    edgecolor='black',
-                    marker='X',
-                    label='Diurnal centroid')
-
-    plt.title(title, fontsize=24)
-    plt.xlabel('Hour of Day', fontsize=20)
-    plt.ylabel('Average WUE [gC per kg H₂O]', fontsize=20)
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.xlim(0, 24)
-    plt.grid(True)
-    if group_col:
-        plt.legend(title=legend_title, fontsize=12, loc='best')
-    else:
-        plt.legend(fontsize=14)
-    plt.tight_layout()
-    plt.show()
-
-def plot_seasonal_cycles_multi(
-    df_plot,
-    variables,                     # list of 3 variables
-    y_labels=None,                 # optional list of 3 y-axis labels
-    data_type=None,     # for title only
-    group_type='Veg',              # 'Veg' OR 'kg_label'
-    veg_color_palette=veg_color_palette,
-    koppen_label_color_palette=koppen_label_color_palette,
-    frac=0.2,
-    ylims = [[-0.5,13],[0,4.5],[0,4.5]],
-    valid_veg=None,
-    valid_kg=None,
-    output_path=None
-):
-
-    assert len(variables) == 3, "Please provide exactly 3 variables"
-
-    df_plot = df_plot.copy()
-    df_plot['DOY'] = df_plot['TIMESTAMP'].dt.dayofyear
-
-    # -----------------------------------------
-    # Select grouping + color palette
-    # -----------------------------------------
-    if group_type == 'Veg':
-        group_col = 'Veg'
-        palette = veg_color_palette
-        valid_groups = valid_veg
-        title_suffix = 'Vegetation'
-    elif group_type == 'kg_label':
-        group_col = 'kg_label'
-        palette = koppen_label_color_palette
-        valid_groups = valid_kg
-        title_suffix = 'Climate'
-    else:
-        raise ValueError("group_type must be 'Veg' or 'kg_label'")
-
-    # Filter if needed
-    if valid_groups is not None:
-        df_plot = df_plot[df_plot[group_col].isin(valid_groups)]
-
-    # -----------------------------------------
-    # Create figure
-    # -----------------------------------------
-    fig, axes = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
-    fig.suptitle(
-        f"Seasonal cycles of {', '.join(variables)} by {title_suffix} for {data_type}",
-        fontsize=20
-    )
-
-    panel_labels = ['(a)', '(b)', '(c)']
-
-    for i, variable in enumerate(variables):
-
-        doy_group = (
-            df_plot
-            .groupby(['DOY', group_col])[variable]
-            .mean()
-            .reset_index()
-            .groupby(group_col)
-            .apply(apply_lowess, variable=variable, frac=frac)
-        )
-
-        ax = axes[i]
-
-        for group, d in doy_group.groupby(group_col):
-            ax.plot(
-                d['DOY'],
-                d[f'{variable}_smooth'],
-                color=palette.get(group, 'gray'),
-                label=group,
-                linewidth=3
-            )
-        
-        # Panel label
-        ax.text(
-            0.02, 0.92, panel_labels[i],
-            transform=ax.transAxes,
-            fontsize=14,
-            fontweight='bold',
-            va='top',
-            ha='left'
-        )
-
-        ax.set_ylabel(y_labels[i] if y_labels else variable, fontsize=16)
-        ax.set_xlim(1, 366)
-        ax.set_ylim(ylims[i])
-
-        if i == 0:
-            ax.legend(ncol=2, fontsize=16, frameon=False)
-
-    axes[-1].set_xlabel('Day of Year', fontsize=16)
-
-    plt.tight_layout()
-
-    if output_path is not None:
-        plt.savefig(output_path, dpi=300)
-
-    plt.show()
-
-def plot_merged_diurnal_wue(
-    df_flux,
-    df_ecoco,
-    title='Flux vs ECOCO Summer WUE Diurnal Profile'
-):
-
-    plt.figure(figsize=(12, 6))
-
-    # =====================
-    # FLUX
-    # =====================
-    flux_avg = df_flux.groupby('Hour')['WUE'].mean().reset_index()
-    flux_std = df_flux.groupby('Hour')['WUE'].std().reset_index()
-    flux_stats = pd.merge(flux_avg, flux_std, on='Hour', suffixes=('_avg', '_std'))
-
-    flux_centroid = compute_diurnal_centroid(
-        flux_stats,
-        hour_col='Hour',
-        weight_col='WUE_avg'
-    )
-
-    sns.lineplot(
-        x='Hour',
-        y='WUE_avg',
-        data=flux_stats,
-        marker='o',
-        color = '#2C7FB8',
-        linewidth=2,
-        label='FLUXNET'
-    )
-
-    plt.fill_between(
-        flux_stats['Hour'],
-        flux_stats['WUE_avg'] - flux_stats['WUE_std'],
-        flux_stats['WUE_avg'] + flux_stats['WUE_std'],
-        color = '#2C7FB8',
-        alpha=0.15
-    )
-
-    flux_wue_centroid = np.interp(
-        flux_centroid,
-        flux_stats['Hour'],
-        flux_stats['WUE_avg']
-    )
-
-    plt.scatter(
-        flux_centroid,
-        flux_wue_centroid,
-        s=150,
-        edgecolor='black',
-        facecolor='#2C7FB8',
-        marker='X',
-        label='FLUXNET centroid'
-    )
-
-    # =====================
-    # ECOCO
-    # =====================
-    ecoco_avg = df_ecoco.groupby('Hour')['WUE'].mean().reset_index()
-    ecoco_std = df_ecoco.groupby('Hour')['WUE'].std().reset_index()
-    ecoco_stats = pd.merge(ecoco_avg, ecoco_std, on='Hour', suffixes=('_avg', '_std'))
-
-    ecoco_centroid = compute_diurnal_centroid(
-        ecoco_stats,
-        hour_col='Hour',
-        weight_col='WUE_avg'
-    )
-
-    sns.lineplot(
-        x='Hour',
-        y='WUE_avg',
-        data=ecoco_stats,
-        marker='o',
-        linewidth=2,
-        linestyle='--',
-        color = '#D95F0E',
-        label='ECOCO3'
-    )
-
-    plt.fill_between(
-        ecoco_stats['Hour'],
-        ecoco_stats['WUE_avg'] - ecoco_stats['WUE_std'],
-        ecoco_stats['WUE_avg'] + ecoco_stats['WUE_std'],
-        color = '#D95F0E',
-        alpha=0.15
-    )
-
-    ecoco_wue_centroid = np.interp(
-        ecoco_centroid,
-        ecoco_stats['Hour'],
-        ecoco_stats['WUE_avg']
-    )
-
-    plt.scatter(
-        ecoco_centroid,
-        ecoco_wue_centroid,
-        s=150,
-        edgecolor='black',
-        marker='X',
-        facecolor = '#D95F0E',
-        label='ECOCO3 centroid'
-    )
-
-    # =====================
-    # Formatting
-    # =====================
-    plt.title(title, fontsize=24)
-    plt.xlabel('Hour of Day', fontsize=20)
-    plt.ylabel('Average WUE [gC per kg H₂O]', fontsize=20)
-    plt.xticks(fontsize=16)
-    plt.yticks(fontsize=16)
-    plt.xlim(0, 24)
-    plt.grid(True)
-    plt.legend(fontsize=14)
-    plt.tight_layout()
-    plt.show()
-
-def hour_to_timestamp(hour_float):
-    h = int(hour_float)
-    m = int((hour_float - h) * 60)
-    return f"{h:02d}:{m:02d}"
-
-def get_stats(df, var):
-    avg = df.groupby('Hour')[var].mean().reset_index()
-    std = df.groupby('Hour')[var].std().reset_index()
-    return pd.merge(avg, std, on='Hour', suffixes=('_avg', '_std'))
 
 def plot_merged_diurnal_cycles(
     df_flux,
@@ -1232,127 +901,6 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
         plt.savefig('figures/data_coverage_map.png', dpi=300)
     plt.show()
 
-
-def plot_seasonal_cycles_comparison(
-    df_fluxnet,
-    df_ecoco3,
-    variables,                     # list of 3 variables (GPP, ET, WUE)
-    y_labels=None,
-    group_type='Veg',
-    veg_color_palette=veg_color_palette,
-    koppen_label_color_palette=koppen_label_color_palette,
-    frac=0.2,
-    ylims=[[ -0.5, 13], [0, 5], [0, 5]],
-    valid_veg=None,
-    valid_kg=None,
-    output_path=None
-):
-
-    assert len(variables) == 3, "Please provide exactly 3 variables"
-
-    # Copy + add DOY
-    df_ecoco3 = df_ecoco3.copy()
-    df_fluxnet = df_fluxnet.copy()
-    df_ecoco3['DOY'] = df_ecoco3['TIMESTAMP'].dt.dayofyear
-    df_fluxnet['DOY'] = df_fluxnet['TIMESTAMP'].dt.dayofyear
-
-    # -----------------------------------------
-    # Select grouping + color palette
-    # -----------------------------------------
-    if group_type == 'Veg':
-        group_col = 'Veg'
-        palette = veg_color_palette
-        valid_groups = valid_veg
-        title_suffix = 'Vegetation'
-    elif group_type == 'kg_label':
-        group_col = 'kg_label'
-        palette = koppen_label_color_palette
-        valid_groups = valid_kg
-        title_suffix = 'Climate'
-    else:
-        raise ValueError("group_type must be 'Veg' or 'kg_label'")
-
-    # Filter
-    if valid_groups is not None:
-        df_ecoco3 = df_ecoco3[df_ecoco3[group_col].isin(valid_groups)]
-        df_fluxnet = df_fluxnet[df_fluxnet[group_col].isin(valid_groups)]
-
-    # -----------------------------------------
-    # Create figure (3 rows × 2 columns), share y per row
-    # -----------------------------------------
-    fig, axes = plt.subplots(
-        nrows=3, ncols=2, figsize=(16, 12), 
-        sharex=True, sharey='row'  # <- share y-axis for columns
-    )
-    fig.suptitle(
-        f"Seasonal cycles by {title_suffix}: FLUXNET vs ECOCO3",
-        fontsize=28
-    )
-
-    panel_labels = ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)']
-    datasets = [(df_fluxnet, "FLUXNET"), (df_ecoco3, "ECOCO3")]
-
-    label_idx = 0
-    for i, variable in enumerate(variables):
-        for j, (df_plot, col_title) in enumerate(datasets):
-            ax = axes[i, j]
-
-            doy_group = (
-                df_plot
-                .groupby(['DOY', group_col])[variable]
-                .mean()
-                .reset_index()
-                .groupby(group_col)
-                .apply(apply_lowess, variable=variable, frac=frac)
-            )
-
-            for group, d in doy_group.groupby(group_col):
-                ax.plot(
-                    d['DOY'],
-                    d[f'{variable}_smooth'],
-                    color=palette.get(group, 'gray'),
-                    linewidth=7,
-                    label=group
-                )
-
-            # Panel label
-            ax.text(
-                0.02, 0.92, panel_labels[label_idx],
-                transform=ax.transAxes,
-                fontsize=14,
-                fontweight='bold',
-                va='top',
-                ha='left'
-            )
-            label_idx += 1
-
-            # Titles (top row only)
-            if i == 0:
-                ax.set_title(col_title, fontsize=24)
-
-            # Y labels (left column only)
-            if j == 0:
-                ax.set_ylabel(y_labels[i] if y_labels else variable, fontsize=22)
-                ax.tick_params(axis='y', labelsize=20)
-
-            ax.set_xlim(1, 366)
-            ax.set_ylim(ylims[i])
-
-            # Legend only once
-            if i == 0 and j == 0:
-                ax.legend(ncol=2, fontsize=16, frameon=False)
-
-    # X label bottom row
-    for ax in axes[-1, :]:
-        ax.set_xlabel('Day of Year', fontsize=22)
-        ax.tick_params(axis='x', labelsize=20)
-
-    plt.tight_layout()
-
-    if output_path is not None:
-        plt.savefig(output_path, dpi=300)
-
-    plt.show()
 
 def plot_violin_comparison_stacked(
     df_ecoco3,
