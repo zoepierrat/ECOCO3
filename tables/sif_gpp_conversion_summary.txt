@@ -1,0 +1,25 @@
+Coincident half-hourly points used: 312  (tower-pixel match, radius=15.0 km, ±15 min)
+
+=== Single global empirical factor (GPP_FLUX = k * SIF, all vegetation pooled) ===
+  k (through origin) = 14.446    R^2 = 0.216    RMSE = 7.49 umol CO2 m-2 s-1
+  slope with intercept = 10.392, intercept = 3.676    R^2 = 0.282
+
+=== Saturating fit: GPP_FLUX = (m * SIF) / (a + SIF) ===
+  m (asymptote) = 34.480 umol CO2 m-2 s-1    a (half-saturation SIF) = 1.288
+  initial slope m/a = 26.771  (compare to linear k = 14.446)
+  R^2 = 0.306    RMSE = 7.04 umol CO2 m-2 s-1
+  vs linear-through-origin: R^2 improves (0.216 -> 0.306), at the cost of a second free parameter -- worth the added complexity
+  SIF range in this sample: 0.004 to 2.782 (median 0.492)
+
+=== Benchmark: current per-vegetation literature factors (already in use) ===
+  R^2 = 0.216    RMSE = 7.49 umol CO2 m-2 s-1
+
+=== Per-vegetation empirical factors (context only -- not a single number) ===
+Veg   n  k_empirical       r2
+CRO  28    12.977941 0.359676
+DBF  25    12.498272 0.805112
+ENF  43    20.924942 0.091940
+GRA 148    16.658334 0.143279
+WSA  24     8.773006 0.500620
+
+Global R^2 (0.216) vs current per-veg R^2 (0.216): comparable

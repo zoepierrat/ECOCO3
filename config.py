@@ -65,8 +65,10 @@ SPEI_THRESHOLDS = {
 
 NOTEBOOK_PIPELINE = [
     ("00a_FLUXNET_datashuttle_preprocess.ipynb", "FLUXNET raw data → preprocessed CSV"),
-    ("00b_ECOCO_preprocess_C1_V3.ipynb", "ECOCO3 raw data → cleaned CSV"),
-    ("01_Analysis_V5.ipynb", "Main analysis: comparisons, plots, statistics"),
+    ("00b_ECOCO_preprocess_C1_V3.ipynb", "ECOCO3 C1/V1 raw data → cleaned CSV"),
+    ("00b_ECOCO_preprocess_C2_V1.ipynb", "ECOCO3 C2/V2 raw data → cleaned CSV"),
+    ("01_Analysis_V5.ipynb", "Main analysis (C1/V1): comparisons, plots, statistics"),
+    ("01_Analysis_V6.ipynb", "Main analysis (C2/V2): comparisons, plots, statistics"),
 ]
 
 SUPPORTING_NOTEBOOKS = [
@@ -78,7 +80,7 @@ SUPPORTING_NOTEBOOKS = [
 # PLOTTING MODULE
 # ====================================================================
 
-# 13 functions available in plot_scripts.py
+# 18 functions available in plot_scripts.py
 PLOT_FUNCTIONS = {
     # Utilities
     'hour_to_timestamp': 'Convert hour (float) → HH:MM string',
@@ -91,13 +93,18 @@ PLOT_FUNCTIONS = {
     'plot_diurnal_cycles_spei': 'Diurnal by drought stratification',
     'plot_diurnal_cycles_spei_comparison': 'Drought comparison: FLUXNET vs ECOCO3',
     'plot_violin_comparison_stacked': '4-panel distribution: Veg & climate',
-    
+    'plot_violin_comparison_split': 'Split-violin FLUXNET vs ECOCO3: Veg & climate, Mann-Whitney stars',
+    'plot_seasonal_cycles_by_site': 'Per-group seasonal cycles: FLUXNET site lines + ECOCO3 points',
+    'plot_seasonal_offset_summary': 'Forest plot: seasonal peak-timing/amplitude offset, 95% bootstrap CI',
+    'plot_centroid_shift_summary_by_site': 'Forest plot: FLUXNET-only centroid drought shift, per site',
+
     # Coverage maps
     'plot_data_coverage_map': 'Spatial + temporal coverage: scenes per location',
     'plot_data_coverage_map_sites': 'Site-level coverage summary',
     
     # Helpers (low-level)
     'plot_violin': 'Single violin plot with ANOVA significance letters',
+    'plot_violin_split': 'Split-violin panel: FLUXNET vs ECOCO3 with Mann-Whitney stars',
     'get_group_letters': 'Statistical grouping from Tukey HSD',
     'apply_lowess': 'LOWESS smoothing by group',
 }
@@ -126,7 +133,10 @@ VALID_KOPPEN = [
 GIT_IGNORE_PATTERNS = [
     "data/**/*.csv",      # All data CSVs (too large for git)
     "data/**/*.nc",       # NetCDF files
+    "data/**/*.nc4",      # NetCDF4 files (raw ECOCO3 scenes)
     "data/**/*.h5",       # HDF5 files
+    "data/ECOCO3_V1/",    # Raw ECOCO3 V1 data dump (too large for git)
+    "data/ECOCO3_V2/",    # Raw ECOCO3 V2 data dump (too large for git)
     ".DS_Store",          # macOS
     "__pycache__/",       # Python
     ".ipynb_checkpoints/", # Jupyter

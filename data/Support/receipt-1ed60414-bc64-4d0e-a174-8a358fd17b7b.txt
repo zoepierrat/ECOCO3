@@ -1,0 +1,64 @@
+{
+  "request-id": "1ed60414-bc64-4d0e-a174-8a358fd17b7b",
+  "collection-id": "derived-drought-historical-monthly",
+  "request": {
+    "area": [
+      51.6,
+      -180,
+      -51.6,
+      180
+    ],
+    "year": [
+      "2018",
+      "2019",
+      "2020",
+      "2021",
+      "2022",
+      "2023",
+      "2024",
+      "2025",
+      "2026"
+    ],
+    "month": [
+      "01",
+      "02",
+      "03",
+      "04",
+      "05",
+      "06",
+      "07",
+      "08",
+      "09",
+      "10",
+      "11",
+      "12"
+    ],
+    "version": "1_0",
+    "variable": [
+      "standardised_precipitation_index",
+      "standardised_precipitation_evapotranspiration_index"
+    ],
+    "dataset_type": "consolidated_dataset",
+    "product_type": [
+      "reanalysis"
+    ],
+    "accumulation_period": [
+      "1"
+    ]
+  },
+  "status": "successful",
+  "created-at": "2026-07-27T18:21:53.482215",
+  "started-at": "2026-07-27T18:22:19.367931",
+  "finished-at": "2026-07-27T18:25:19.848020",
+  "updated-at": "2026-07-27T18:25:19.848020",
+  "origin": "ui",
+  "collection-url": "https://cds.climate.copernicus.eu/datasets/derived-drought-historical-monthly",
+  "user-support-url": "https://support.ecmwf.int",
+  "licence": [
+    "CC-BY licence (version 1)",
+    "Data protection and privacy statement (version 24)",
+    "Terms of use of the Copernicus Climate Data Store (version 11)"
+  ],
+  "filename": "s3://cci2-prod-cache-2/2026-07-27/f3e5accdb0ee369cb8bc63c5113573a4.zip",
+  "download-size": 948396266
+}

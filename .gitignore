@@ -1,8 +1,13 @@
 # Ignore all data files
 /data/**/*.csv
 /data/**/*.nc
+/data/**/*.nc4
 /data/**/*.h5
 /data/**/*.hdf5
+
+# Raw ECOCO3 data dumps (too large for git)
+/data/ECOCO3_V1/
+/data/ECOCO3_V2/
 
 # Python and OS
 .DS_Store

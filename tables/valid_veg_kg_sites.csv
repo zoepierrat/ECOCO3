@@ -1,0 +1,283 @@
+Site,Veg,kg_label,n_scenes_hh,n_site_years,data_hub,Name,Lat,Long,network,first_year,last_year
+AT-Nsd,WET,Cfa,59768,5,ICOS,Neusiedl,47.76914,16.758492,European Fluxes Database;LTER,2018,2022
+AT-PsM,WET,Dfb,16276,2,ICOS,Puergschachen Moor,47.58145,14.347197,European Fluxes Database;LTER,2015,2019
+AU-APL,WET,Cfb,45728,5,TERN,Alpine Peatland,-36.862222,147.320833,OzFlux,2017,2022
+AU-ASM,SAV,BWh,45519,8,TERN,Alice Springs Mulga,-22.283,133.249,TERN,2010,2025
+AU-Boy,EBF,Csa,72285,8,TERN,Boyagin,-32.477093,116.938559,TERN,2017,2025
+AU-Col,EBF,Csb,17982,2,TERN,Collie,-33.42,116.237,OzFlux,2017,2019
+AU-Cow,EBF,Am,95745,8,TERN,Caow Bay,-16.238189,145.42715,OzFlux,2009,2025
+AU-Cpr,WSA,BWk,60487,8,TERN,Calperum Chowilla,-34.0027,140.5877,TERN,2010,2025
+AU-Cum,EBF,Cfa,103649,8,TERN,Cumberland Plain,-33.615278,150.723611,TERN,2014,2025
+AU-DaS,WSA,Aw,88027,8,TERN,Daly Uncleared,-14.1592,131.3881,OzFlux,2007,2025
+AU-Dry,WSA,Aw,85965,8,TERN,Dry River,-15.2588,132.3706,OzFlux,2009,2025
+AU-Fle,WSA,BSh,38788,4,TERN,Fletcherview Tropical Rangeland,-19.887285,146.189138,OzFlux,2022,2025
+AU-GWW,EBF,BWh,55363,8,TERN,Great Western Woodlands,-30.1914,120.65417,OzFlux,2013,2025
+AU-Gin,EBF,Csa,72851,8,TERN,Gingin,-31.376351,115.71377,OzFlux,2011,2025
+AU-How,WSA,Aw,90344,8,TERN,Howard Springs,-12.4952,131.15005,OzFlux,2002,2025
+AU-Lon,GRA,BSh,48243,7,TERN,Longreach,-23.52327,144.31042,OzFlux,2018,2024
+AU-MvA,CRO,BSh,12864,2,TERN,Myall Vale A,-30.543,150.02,OzFlux,2023,2024
+AU-MvB,CRO,BSh,10740,1,TERN,Myall Vale B,-30.697,150.09,OzFlux,2024,2024
+AU-Rgf,CVM,Csa,62362,8,TERN,Ridgefield,-32.506102,116.966827,OzFlux,2015,2025
+AU-Rob,EBF,Cwa,103837,8,TERN,Robson Creek,-17.11746943,145.6301375,OzFlux,2013,2025
+AU-Sil,GRA,Cfb,58514,6,TERN,Silver Plains,-42.090556,147.0875,OzFlux,2019,2024
+AU-Sno,EBF,Cfb,14341,2,TERN,Aqueduct Snow Gum,-36.375649,148.43585,OzFlux,2024,2025
+AU-Stp,GRA,BSh,68113,8,TERN,Sturt Plains,-17.1507,133.3502,OzFlux,2008,2025
+AU-Wel,GRA,BSk,21432,2,TERN,Wellington,-32.5727,148.9843,OzFlux,2024,2025
+AU-Wgt,GRA,Cfb,12183,2,TERN,Wedgetail,-42.09139,147.07944,OzFlux,2024,2025
+AU-Whr,EBF,BSk,10791,4,TERN,Whroo,-36.6732,145.0294,OzFlux,2011,2025
+AU-Wom,EBF,Cfb,62026,6,TERN,Wombat Forest,-37.422506,144.094046,TERN,2010,2025
+AU-Wrr,EBF,Cfb,33840,4,TERN,Warra,-43.09502,146.65452,OzFlux,2013,2021
+AU-Ya1,GRA,Cfa,28689,3,TERN,Yarramundi Control,-33.613469,150.734864,OzFlux,2023,2025
+AU-Ya2,GRA,Cfa,28678,3,TERN,Yarramundi Irrigated,-33.620812,150.763284,OzFlux,2023,2025
+AU-Ync,GRA,BSk,65684,7,TERN,Yanco,-34.9878,146.2908,OzFlux,2012,2025
+BE-Bra,ENF,Cfb,47033,6,ICOS,Brasschaat,51.30761,4.51984,European Fluxes Database;ICOS,1999,2024
+BE-Dor,GRA,Cfb,31454,4,ICOS,Dorinne,50.311874,4.968113,European Fluxes Database;ICOS,2011,2024
+BE-Lon,CRO,Cfb,58310,7,ICOS,Lonzee,50.55162,4.746234,European Fluxes Database;ICOS,2004,2024
+BE-Vie,MF,Cfb,63287,7,ICOS,Vielsalm,50.304962,5.998099,European Fluxes Database;ICOS,1996,2024
+BJ-Db1,CRO,Aw,33524,3,ICOS,DANGBO,6.607338,2.543043,Unaffiliated,2022,2024
+CA-DB2,WET,Cfb,40351,6,AmeriFlux,Delta Burns Bog 2,49.119,-122.9951,AmeriFlux,2019,2024
+CA-DBB,WET,Cfb,50563,6,AmeriFlux,Delta Burns Bog,49.1293,-122.9849,AmeriFlux,2015,2024
+CA-DSM,WET,Cfb,30022,4,AmeriFlux,Delta Salt Marsh,49.0887,-122.8954,AmeriFlux,2021,2024
+CA-RBM,WET,Csb,27512,3,AmeriFlux,Richmond Brackish Marsh,49.1313,-123.1964,AmeriFlux,2022,2024
+CA-TP3,ENF,Dfb,55098,6,AmeriFlux,Ontario - Turkey Point 1974 Plantation White Pine,42.7068,-80.3483,AmeriFlux;Fluxnet-Canada;Phenocam,2002,2023
+CA-TPA,CRO,Dfa,44004,4,AmeriFlux,Ontario Turkey Point Observatory Agricultural Site,42.6947,-80.3487,AmeriFlux,2020,2023
+CA-TPD,DBF,Dfb,47582,5,AmeriFlux,Ontario - Turkey Point Mature Deciduous,42.6353,-80.5577,AmeriFlux;Fluxnet-Canada;Phenocam,2012,2023
+CH-Cha,GRA,Cfb,86132,7,ICOS,Chamau,47.21022,8.410444,CarboExtreme;European Fluxes Database;GHG-Europe;Swiss FluxNet,2005,2024
+CL-ACF,ENF,Cfb,30999,3,AmeriFlux,Alerce Costero Forest,-40.1726,-73.4439,AmeriFlux,2018,2020
+CL-SDF,EBF,Cfb,39230,4,AmeriFlux,Senda Darwin Forest,-41.883,-73.676,AmeriFlux,2014,2021
+CL-SDP,WET,Cfb,24993,4,AmeriFlux,Senda Darwin Peatland,-41.879,-73.666,AmeriFlux,2014,2021
+CN-Ash,EBF,Cwb,25820,2,ICOS,Ailaoshan,24.53806,101.02917,ChinaFLUX,2009,2019
+CN-BeO,MF,BSk,19968,3,ICOS,Beijing Olympic Forest Park,40.02621,116.39143,ChinaFLUX,2012,2020
+CN-Dmn,CRO,BWk,74506,7,ICOS,Daman,38.85551,100.37223,ChinaFLUX,2012,2024
+CN-Dsh,GRA,ET,42930,7,ICOS,Dashalong,38.83992,98.9406,ChinaFLUX,2013,2024
+CN-Dzo,EBF,Aw,38566,3,ICOS,Danzhou,19.546,109.475,ChinaFLUX,2010,2020
+CN-HeM,DBF,BWk,32538,4,ICOS,Heihe mixed forest,41.99029,101.13349,ChinaFLUX,2013,2024
+CN-Huz,BSV,BSk,51574,7,ICOS,Huazhaizi,38.76519,100.3186,ChinaFLUX,2015,2024
+CN-Jng,GRA,ET,49684,7,ICOS,Jingyangling,37.83869,101.1145,ChinaFLUX,2018,2024
+CN-Lch,CRO,BSk,22262,2,ICOS,Luancheng,37.88936,114.69289,,2008,2020
+CN-Nmn,CRO,BSk,22127,2,ICOS,Naiman,42.94611,120.72694,ChinaFLUX,2015,2019
+CN-Sdq,OSH,BWk,46076,7,ICOS,Sidaoqiao,42.00119,101.13741,ChinaFLUX,2013,2024
+CN-SnB,WET,Cfa,4525,1,ICOS,Shanghai Beihu wetland,31.6905,121.6563,USCCC,2021,2021
+CN-Wnb,BSV,BWk,8556,1,ICOS,Wulanbuhe,40.42876,106.74229,ChinaFLUX,2021,2021
+CN-Xi2,GRA,BSk,27723,3,ICOS,Xilinhot grassland site (X03),43.55444,116.6714,ChinaFLUX,2011,2020
+CN-YaS,OSH,BSk,23395,3,ICOS,Yanchi natural shrubland,37.70877,107.22655,ChinaFLUX,2011,2020
+CN-Yan,OSH,BSk,7949,1,ICOS,Yanchi Planted Shrubs,37.82861,107.49278,,2016,2018
+CN-You,GRA,ET,57404,7,ICOS,Yakou,38.01419,100.24206,ChinaFLUX,2015,2024
+CN-Yuc,CRO,Dwa,19297,2,ICOS,Yucheng,36.8287,116.5701,ChinaFLUX,2011,2020
+CN-Zha,WET,BWk,25648,3,ICOS,Zhangye wetland,38.97514,100.4464,ChinaFLUX,2012,2024
+CR-Fsc,CRO,Aw,13152,1,AmeriFlux,Filadelfia sugar cane cropland,10.4189,-85.4732,AmeriFlux,2015,2018
+CZ-BK1,ENF,Dfb,66413,7,ICOS,Bily Kriz forest,49.502075,18.536882,European Fluxes Database;ICOS,2004,2024
+CZ-KrP,CRO,Dfb,60060,6,ICOS,Kresin u Pacova,49.573257,15.078773,European Fluxes Database,2014,2023
+CZ-LnG,GRA,Dfb,61053,6,ICOS,Lanzhot Grassland,48.704224,16.926247,European Fluxes Database,2019,2024
+CZ-Lnz,DBF,Dfb,52680,5,ICOS,Lanzhot,48.68155,16.946331,European Fluxes Database;ICOS,2015,2024
+CZ-RAJ,ENF,Dfb,73192,7,ICOS,Rajec,49.44372,16.696512,European Fluxes Database,2012,2024
+CZ-Stn,DBF,Dfb,52603,6,ICOS,Stitna,49.035976,17.9699,European Fluxes Database,2010,2024
+CZ-wet,WET,Dfb,67826,7,ICOS,Trebon,49.02465,14.77035,European Fluxes Database;ICOS,2006,2024
+DE-Geb,CRO,Cfb,29790,5,ICOS,Gebesee,51.09973,10.91463,European Fluxes Database;ICOS,2020,2024
+DE-Gri,GRA,Dfb,60389,7,ICOS,Grillenburg,50.950005,13.512533,European Fluxes Database;ICOS,2004,2024
+DE-Hai,DBF,Cfb,44524,7,ICOS,Hainich,51.079212,10.452168,European Fluxes Database;ICOS,2000,2024
+DE-Hzd,DBF,Dfb,31862,3,ICOS,Hetzdorf,50.96381,13.48978,European Fluxes Database;ICOS,2022,2024
+DE-Kli,CRO,Dfb,54195,7,ICOS,Klingenberg,50.893044,13.5223,European Fluxes Database;ICOS,2018,2024
+DE-Msr,ENF,Dfb,34006,5,ICOS,Mooseurach,47.80918,11.456168,European Fluxes Database;ICOS,2020,2024
+DE-Obe,ENF,Dfb,49414,7,ICOS,Oberbarenburg,50.7864,13.72168,CarboEuropeIP;European Fluxes Database,2008,2024
+DE-Rns,CRO,Cfb,46588,4,ICOS,Reinshof,51.494953,9.932118,European Fluxes Database,2021,2024
+DE-RuM,CRO,Cfb,21496,2,ICOS,Merzenhausen,50.929787,6.2969923,European Fluxes Database,2011,2019
+DE-RuR,GRA,Cfb,84421,7,ICOS,Rollesbroich,50.621914,6.304126,European Fluxes Database;ICOS,2011,2024
+DE-RuS,CRO,Cfb,95326,7,ICOS,Selhausen Juelich,50.865906,6.4471445,European Fluxes Database;ICOS,2011,2024
+DE-Tha,ENF,Dfb,72027,7,ICOS,Tharandt,50.962597,13.565333,European Fluxes Database;ICOS,1996,2024
+ES-Abr,SAV,Csa,28282,3,ICOS,Albuera,38.70184,-6.785881,European Fluxes Database,2015,2020
+ES-Cnd,WSA,BSk,28933,4,ICOS,Conde,37.914997,-3.227659,European Fluxes Database,2014,2021
+ES-HdD,SAV,BSk,7301,1,ICOS,Hinojosa del Duque,38.49679,-5.111296,European Fluxes Database,2024,2024
+ES-LJu,OSH,Csa,51553,7,ICOS,Llano de los Juanes,36.926594,-2.752115,,2004,2024
+ES-LM1,SAV,Csa,77037,7,ICOS,Majadas del Tietar North,39.94269,-5.778683,European Fluxes Database,2014,2024
+ES-LM2,SAV,Csa,74526,7,ICOS,Majadas del Tietar South,39.934593,-5.775881,European Fluxes Database,2014,2024
+ES-Pzb,GRA,BSk,40436,5,ICOS,Pozoblanco,38.362118,-4.767329,European Fluxes Database,2020,2024
+ES-TzM,DBF,BSk,42673,5,ICOS,Tarazona de la Mancha,39.265785,-1.9397246,European Fluxes Database,2020,2024
+FR-Aur,CRO,Cfb,54010,7,ICOS,Aurade,43.54965,1.106103,European Fluxes Database;ICOS,2005,2024
+FR-Bil,ENF,Cfb,57176,7,ICOS,Bilos,44.493652,-0.956092,European Fluxes Database;ICOS,2014,2024
+FR-EM2,CRO,Cfb,61620,7,ICOS,Estrees-Mons A28,49.87211,3.02065,European Fluxes Database;ICOS,2017,2024
+FR-Fon,DBF,Cfb,46355,6,ICOS,Fontainebleau-Barbeau,48.476357,2.780096,European Fluxes Database;ICOS,2019,2024
+FR-Gri,CRO,Cfb,43118,7,ICOS,Grignon,48.84422,1.95191,European Fluxes Database;ICOS,2004,2024
+FR-Lam,CRO,Cfa,34625,4,ICOS,Lamasquere,43.496437,1.237878,European Fluxes Database;ICOS,2021,2024
+FR-Lqu,GRA,Cfb,20723,3,ICOS,Laqueuille,45.6444,2.7349,European Fluxes Database;ICOS,2022,2024
+FR-Lus,GRA,Cfb,15432,3,ICOS,Lusignan,46.414246,0.1206518,European Fluxes Database;ICOS,2022,2024
+FR-Mej,GRA,Cfb,57111,6,ICOS,Mejusseaume,48.1184,-1.79635,European Fluxes Database;ICOS,2019,2024
+FR-Pue,EBF,Csa,57853,6,ICOS,Puechabon,43.7413,3.5957,European Fluxes Database;ICOS,2000,2024
+FR-Tou,GRA,Cfa,82049,7,ICOS,Toulouse,43.572857,1.37474,European Fluxes Database;ICOS,2018,2024
+IL-Yat,ENF,BSh,63616,7,ICOS,Yatir,31.345045,35.051987,CarboEuroFlux;CarboEuropeIP;European Fluxes Database,2000,2024
+IT-Arz,OSH,Cfa,57083,4,ICOS,Arzelle,45.61902,10.00228,European Fluxes Database,2016,2024
+IT-BCi,CRO,Csa,54135,5,ICOS,Borgo Cioffi,40.52375,14.957444,European Fluxes Database;ICOS,2004,2024
+IT-BFt,DBF,Cfa,63046,5,ICOS,Bosco Fontana,45.197754,10.741966,European Fluxes Database;ICOS,2019,2024
+IT-BsB,DBF,Dfb,38024,4,ICOS,Bussoleno Bosco,45.11823,7.161995,European Fluxes Database,2021,2024
+IT-Cp2,MF,Csa,43225,7,ICOS,Castelporziano2,41.704266,12.357293,European Fluxes Database;ICOS,2012,2024
+IT-Lsn,OSH,Cfa,60141,7,ICOS,Lison,45.740482,12.750297,European Fluxes Database;ICOS,2016,2024
+IT-MBo,GRA,Dfb,42874,6,ICOS,Monte Bondone,46.01468,11.045831,European Fluxes Database;ICOS,2003,2024
+IT-NiG,GRA,ET,54718,5,ICOS,Nivolet grassland,45.51919,7.171434,European Fluxes Database,2020,2024
+IT-Ren,ENF,Dfb,47914,6,ICOS,Renon,46.58686,11.43369,European Fluxes Database;ICOS,1999,2024
+IT-SR2,ENF,Csa,59375,7,ICOS,San Rossore 2,43.73202,10.29091,European Fluxes Database;ICOS,2013,2024
+JP-Api,DBF,Dfb,33418,5,ICOS,Appi forest meteorology research site,40.001358,140.93658,AsiaFlux;JapanFlux,2000,2022
+JP-Fjy,ENF,Dfb,36897,3,ICOS,Fujiyoshida forest meteorology research site,35.45454,138.76225,AsiaFlux;JapanFlux,2001,2021
+JP-Om2,GRA,Cfa,23286,2,ICOS,Farm field in Osaka Metropolitan University,34.542454,135.50822,AsiaFlux;JapanFlux,2022,2023
+JP-Spp,DBF,Dfb,7967,1,ICOS,Sapporo forest meteorology research site,42.986843,141.38533,AsiaFlux;JapanFlux,2000,2018
+JP-Tmd,GRA,Dfb,58909,6,ICOS,Tomakomai Flux Research Site Disturbed,42.735912,141.52315,AsiaFlux;JapanFlux,2005,2023
+JP-Ynf,EBF,Cfa,52777,5,ICOS,Yona-Field Tower Site,26.751,128.21266,AsiaFlux;JapanFlux,2013,2022
+KE-Aq2,CRO,Cwb,9356,3,ICOS,Ausquest 2,-1.566199,37.100166,Unaffiliated,2022,2024
+KE-Chk,WSA,Aw,17655,3,ICOS,Choke,-3.6663,38.350185,Unaffiliated,2022,2024
+KE-Kpt,GRA,Cwb,43637,6,ICOS,Kapiti,-1.6141866,37.13311,Unaffiliated,2018,2024
+KE-Mkt,CRO,BSh,30060,6,ICOS,Maktau,-3.425859,38.140663,Unaffiliated,2019,2024
+KR-AdC,ENF,Cwa,10431,1,ICOS,Anmyeondo Coniferous forest,36.50565,126.35909,AsiaFlux;KoFlux,2015,2018
+KR-CRK,CRO,Dwa,51568,4,ICOS,Cheorwon Rice paddy,38.2013,127.2497,AsiaFlux;KoFlux,2015,2021
+KR-CmF,CRO,Dwa,15118,2,ICOS,Cheongmicheon Farmland,37.1599,127.65365,,2012,2019
+KR-GmR,CRO,Cfa,24522,2,ICOS,Gimje Rice Paddy,35.74862,126.86432,AsiaFlux;KoFlux,2017,2019
+KR-GmS,CRO,Cfa,23971,2,ICOS,Gimje Soybean Field,35.75089,126.81378,AsiaFlux;KoFlux,2017,2019
+KR-HPK,CRO,Cfa,11689,1,ICOS,Haenam Paddy-field,34.47722,126.48105,AsiaFlux;KoFlux,2016,2018
+KR-HcM,MF,Dwa,12298,1,ICOS,Hongcheon Mixed forest,37.61938,127.84571,AsiaFlux;KoFlux,2015,2018
+KR-Hnm,CRO,Cfa,27787,2,ICOS,Haenam Farmland (HFK),34.5538,126.56992,AsiaFlux;KoFlux,2016,2019
+KR-JjM,MF,Cfa,11492,1,ICOS,Jeju Mixed forest,33.31798,126.56772,AsiaFlux;KoFlux,2015,2018
+KR-Kw1,ENF,Dwa,28883,3,ICOS,Gwangneung Coniferous forest,37.74843,127.16261,,2016,2020
+KR-Kw2,DBF,Dwa,31007,3,ICOS,Gwangneung Deciduous forest,37.74869,127.14888,AsiaFlux;KoFlux,2016,2020
+KR-Nj1,CRO,Cfa,22926,2,ICOS,Naju Rice Paddy 1,35.02753,126.82093,,2023,2024
+KR-Nj2,CRO,Cfa,20420,2,ICOS,Naju Rice Paddy 2,35.0269,126.8219,AsiaFlux;KoFlux,2023,2024
+KR-ScC,ENF,Dfa,11896,1,ICOS,Samcheok Coniferous forest,37.22141,129.29863,AsiaFlux;KoFlux,2015,2018
+KR-SmM,MF,Dwa,40134,4,ICOS,Seolmacheon Mixed forest,37.93894,126.95471,,2015,2021
+KR-TwB,DBF,Dwa,10619,1,ICOS,Taehwa Broadleaf forest,37.30406,127.31395,,2024,2024
+KR-UAO,CRO,Dwa,25462,2,ICOS,Uiseong Apple Orchard,36.41682,128.79904,AsiaFlux;KoFlux,2017,2019
+KR-WdE,EBF,Cfa,13575,1,ICOS,Wando Evergreen broadleaf forest,34.35956,126.67779,AsiaFlux;KoFlux,2015,2018
+MN-Hst,GRA,BSk,22489,3,ICOS,Hustai grassland,47.59293,105.85497,JapanFlux,2015,2020
+MX-PMm,WET,Aw,13125,1,AmeriFlux,Puerto Morelos mangrove,20.8462,-86.8992,AmeriFlux;MexFlux,2017,2018
+NZ-ADd,GRA,Cfb,22742,3,TERN,Ashley Dene dry,-43.64405,172.35465,OzFlux,2016,2020
+NZ-ADw,GRA,Cfb,43151,5,TERN,Ashley Dene wet,-43.64935,172.34952,OzFlux,2015,2022
+NZ-Cla,GRA,Cfb,22022,4,TERN,Claireview Farm,-43.78628,171.59558,OzFlux,2022,2025
+NZ-Lau,GRA,Cfb,80752,7,TERN,Lauder,-45.038904,169.681109,OzFlux,2019,2025
+PR-xLA,GRA,Am,29174,6,AmeriFlux,NEON Lajas Experimental Station (LAJA),18.0212,-67.0769,AmeriFlux;NEON;Phenocam,2019,2024
+SN-Dhr,GRA,BWh,27987,4,ICOS,Dahra,15.40256,-15.43214,CarboAfrica;European Fluxes Database;GHG-Europe,2010,2022
+SN-Nkr,CRO,BSh,34262,7,ICOS,Niakhar,14.49581,-16.45357,European Fluxes Database,2018,2024
+US-A37,CVM,Cfa,12437,1,AmeriFlux,ARM-SGP-Waukomis,36.3106,-97.928,AmeriFlux,2024,2024
+US-A39,CRO,Cfa,12757,1,AmeriFlux,ARM-SGP-Morrison,36.3776,-96.069,AmeriFlux,2024,2024
+US-Bi1,CRO,Csa,73597,7,AmeriFlux,Bouldin Island Alfalfa,38.0992,-121.4993,AmeriFlux;Phenocam,2016,2024
+US-Bi2,CRO,Csa,81833,8,AmeriFlux,Bouldin Island corn,38.1091,-121.5351,AmeriFlux;Phenocam,2017,2025
+US-CGG,GRA,Csb,49653,6,AmeriFlux,Concord Grazed Grassland,37.938,-121.9761,AmeriFlux,2019,2024
+US-CMW,DBF,BSh,34832,4,AmeriFlux,Charleston Mesquite Woodland,31.6637,-110.1777,AmeriFlux,2001,2021
+US-CRK,ENF,Cfa,33783,4,AmeriFlux,Davy Crockett National Forest,31.4629,-95.3415,AmeriFlux,2022,2025
+US-CS2,ENF,Dfb,11573,4,AmeriFlux,Tri county school Pine Forest,44.1467,-89.5002,AmeriFlux,2018,2022
+US-CS5,CRO,Dfb,4219,1,AmeriFlux,Central Sands Irrigated Agricultural Field,44.1095,-89.5377,AmeriFlux,2021,2021
+US-CS6,CRO,Dfb,10324,2,AmeriFlux,Central Sands Irrigated Agricultural Field,44.4297,-89.544,AmeriFlux,2022,2023
+US-CS8,CRO,Dfb,2826,1,AmeriFlux,Central Sands Irrigated Agricultural Field,44.4338,-89.5364,AmeriFlux,2023,2023
+US-ChR,DBF,Cfa,19476,2,AmeriFlux,Chestnut Ridge,35.9311,-84.3324,AmeriFlux;Phenocam,2006,2019
+US-DFC,CRO,Dfa,68273,7,AmeriFlux,"US Dairy Forage Research Center, Prairie du Sac",43.3448,-89.7117,AmeriFlux,2018,2024
+US-DS3,CRO,Csa,46041,5,AmeriFlux,Staten Rice 1,38.1235,-121.549,AmeriFlux;Phenocam,2021,2025
+US-Dmg,WET,Csa,60706,5,AmeriFlux,Dutch Slough Marsh Gilbert Tract,38.0015,-121.6691,AmeriFlux,2021,2025
+US-EA6,WSA,BSh,5334,1,AmeriFlux,Camp Wood Shield Ranch Oak Savannah,29.6561,-99.9588,AmeriFlux,2023,2023
+US-EDN,WET,Csb,87591,7,AmeriFlux,Eden Landing Ecological Reserve,37.6156,-122.114,AmeriFlux,2018,2024
+US-Elm,WET,Am,25014,5,AmeriFlux,Everglades (long hydroperiod marsh),25.5519,-80.7826,AmeriFlux;LTER,2008,2024
+US-EvM,WET,Am,41820,4,AmeriFlux,Everglades Saltwater intrusion marsh,25.3539,-80.381,AmeriFlux;LTER,2020,2023
+US-HB2,ENF,Cfa,86498,7,AmeriFlux,Hobcaw Barony Mature Longleaf Pine,33.3242,-79.244,AmeriFlux;Phenocam,2018,2024
+US-HB3,ENF,Cfa,66217,6,AmeriFlux,Hobcaw Barony Longleaf Pine Restoration,33.3482,-79.2322,AmeriFlux;Phenocam,2019,2024
+US-HBK,DBF,Dfb,79429,7,AmeriFlux,Hubbard Brook Experimental Forest,43.9397,-71.7181,AmeriFlux,2016,2024
+US-HRA,CRO,Cfa,7308,2,AmeriFlux,Humnoke Farm Rice Field – Field A,34.5852,-91.7517,AmeriFlux;Phenocam,2015,2024
+US-HRC,CRO,Cfa,6687,2,AmeriFlux,Humnoke Farm Rice Field – Field C,34.5888,-91.7517,AmeriFlux;Phenocam,2015,2024
+US-HWB,CVM,Dfa,6978,1,AmeriFlux,USDA ARS Pasture Sytems and Watershed Management Research Unit- Hawbecker Site,40.8608,-77.8488,AmeriFlux;LTAR,2015,2018
+US-Hn3,OSH,BWk,7319,1,AmeriFlux,Hanford 100H sagebrush,46.6878,-119.4614,AmeriFlux,2017,2018
+US-Hsm,WET,Csa,61529,5,AmeriFlux,Hill Slough Marsh,38.2368,-122.0212,AmeriFlux;Phenocam,2021,2025
+US-Jo1,OSH,BWk,47554,5,AmeriFlux,Jornada Experimental Range Bajada Site,32.582,-106.635,AmeriFlux;LTER,2010,2022
+US-KFS,GRA,Dfa,7879,1,AmeriFlux,Kansas Field Station,39.0561,-95.1907,AmeriFlux;Phenocam,2007,2019
+US-MEF,ENF,Dfb,18491,2,AmeriFlux,Manitou Experimental Forest,39.1006,-105.1024,AmeriFlux,2024,2025
+US-MN3,CRO,Dfa,57915,5,AmeriFlux,"Morris: Corn-Soybean, Conventional Tillage",45.6091,-96.1265,AmeriFlux,2020,2024
+US-MOz,DBF,Dfa,35667,4,AmeriFlux,Missouri Ozark Site,38.7441,-92.2,AmeriFlux;Phenocam,2004,2021
+US-Me6,ENF,Dsb,65335,8,AmeriFlux,Metolius Young Pine Burn,44.3233,-121.6078,AmeriFlux;Phenocam,2010,2025
+US-Mo1,CRO,Dfa,99421,7,AmeriFlux,LTAR CMRB Field 1 (CMRB ASP),39.2298,-92.1167,AmeriFlux;LTAR;Phenocam,2015,2024
+US-Mo2,GRA,Dfa,89469,7,AmeriFlux,LTAR CMRB Tucker Prairie (CMRB TP),38.9488,-91.9945,AmeriFlux;LTAR;Phenocam,2018,2024
+US-Mo3,CRO,Dfa,86217,6,AmeriFlux,LTAR CMRB Field 3 (CMRB BAU),39.2322,-92.1493,AmeriFlux;LTAR;Phenocam,2016,2023
+US-NC2,ENF,Cfa,70766,8,AmeriFlux,NC_Loblolly Plantation,35.803,-76.6685,AmeriFlux;Phenocam;USCCC,2005,2025
+US-NC3,ENF,Cfa,25831,3,AmeriFlux,NC_Clearcut#3,35.799,-76.656,AmeriFlux;USCCC,2013,2021
+US-NSb,CRO,BSh,12724,3,AmeriFlux,NASA HAQ - SJV West Irrigated Cotton,36.3354,-120.1183,AmeriFlux,2023,2025
+US-ONA,GRA,Cfa,52171,5,AmeriFlux,Florida pine flatwoods,27.3836,-81.9509,AmeriFlux;LTAR,2016,2022
+US-OPE,CRO,Cfa,10441,1,AmeriFlux,Optimizing Production Inputs for Economic and Environmental Enhancement (OPE3),39.0293,-76.8457,AmeriFlux;LTAR;Phenocam,2022,2022
+US-PAS,GRA,Cfa,17839,2,AmeriFlux,"Florida, Paspalum notatum pasture",27.3944,-81.951,AmeriFlux;LTAR,2021,2022
+US-PFL,DBF,Dfb,3104,1,AmeriFlux,SW2 Aspen-3 CHEESEHEAD 2019,45.9409,-90.3177,AmeriFlux,2019,2019
+US-PFb,ENF,Dfb,3244,1,AmeriFlux,NW1 Pine-1 CHEESEHEAD 2019,45.972,-90.3232,AmeriFlux,2019,2019
+US-PFc,DBF,Dfb,2846,1,AmeriFlux,NW2 Aspen-1 CHEESEHEAD 2019,45.9677,-90.3088,AmeriFlux,2019,2019
+US-PFd,WET,Dfb,4047,1,AmeriFlux,NW3 Tussock-1 CHEESEHEAD 2019,45.9689,-90.301,AmeriFlux,2019,2019
+US-PFf,GRA,Dfb,2747,1,AmeriFlux,NW5 Grass-1 CHEESEHEAD 2019,45.9458,-90.2944,AmeriFlux,2019,2019
+US-PFg,ENF,Dfb,3007,1,AmeriFlux,NE1 Pine-2 CHEESEHEAD 2019,45.9735,-90.2723,AmeriFlux,2019,2019
+US-PFh,ENF,Dfb,3106,1,AmeriFlux,NE2 Pine-3 CHEESEHEAD 2019,45.9557,-90.2406,AmeriFlux,2019,2019
+US-PFi,DBF,Dfb,2715,1,AmeriFlux,NE3 Hardwood-1 CHEESEHEAD 2019,45.9749,-90.2327,AmeriFlux,2019,2019
+US-PFj,DBF,Dfb,3471,1,AmeriFlux,NE4 Maple-1 CHEESEHEAD 2019,45.9619,-90.227,AmeriFlux,2019,2019
+US-PFk,DBF,Dfb,3047,1,AmeriFlux,SW1 Aspen-2 CHEESEHEAD 2019,45.9149,-90.3425,AmeriFlux,2019,2019
+US-PFm,DBF,Dfb,2620,1,AmeriFlux,SW3 Hardwood-2 CHEESEHEAD 2019,45.9207,-90.3099,AmeriFlux,2019,2019
+US-PFn,DBF,Dfb,3521,1,AmeriFlux,SW4 Hardwood-3 CHEESEHEAD 2019,45.9392,-90.2823,AmeriFlux,2019,2019
+US-PFp,DBF,Dfb,3508,1,AmeriFlux,SE2 Hardwood-4 CHEESEHEAD 2019,45.9365,-90.2641,AmeriFlux,2019,2019
+US-PFq,DBF,Dfb,3091,1,AmeriFlux,SE3 Aspen-4 CHEESEHEAD 2019,45.9271,-90.2475,AmeriFlux,2019,2019
+US-PFr,WET,Dfb,2597,1,AmeriFlux,SE4 Tussock-2 CHEESEHEAD 2019,45.9245,-90.2475,AmeriFlux,2019,2019
+US-PFt,ENF,Dfb,3527,1,AmeriFlux,SE6 Pine-4 CHEESEHEAD 2019,45.9197,-90.2288,AmeriFlux,2019,2019
+US-PLo,WET,Dfa,4056,2,AmeriFlux,Plum Island Oligohaline Marsh,42.7496,-70.9157,AmeriFlux,2022,2023
+US-RGA,CRO,Cfa,49473,4,AmeriFlux,Arkansas Corn Farm,34.4159,-91.6733,AmeriFlux;Phenocam,2021,2024
+US-RGB,CRO,Csa,43992,4,AmeriFlux,Butte County Rice Farm,39.5782,-121.8579,AmeriFlux;Phenocam,2021,2024
+US-RGF,CRO,BSk,21568,2,AmeriFlux,Stanislaus County Forage Farm,37.6995,-121.1369,AmeriFlux;Phenocam,2023,2024
+US-RGW,CRO,Cfa,37839,3,AmeriFlux,Desha County Rice Farm,33.6216,-91.4306,AmeriFlux;Phenocam,2022,2024
+US-RGo,CRO,Csa,42701,4,AmeriFlux,Glenn County Organic Rice Farm,39.6805,-122.0026,AmeriFlux;Phenocam,2021,2024
+US-Ro4,GRA,Dfa,80879,8,AmeriFlux,Rosemount Prairie,44.6781,-93.0723,AmeriFlux;Phenocam,2014,2025
+US-Ro5,CRO,Dfa,72721,7,AmeriFlux,Rosemount I18_South,44.691,-93.0576,AmeriFlux;Phenocam,2017,2024
+US-Ro6,CRO,Dfa,77051,7,AmeriFlux,Rosemount I18_North,44.6946,-93.0578,AmeriFlux;Phenocam,2017,2024
+US-Rws,OSH,BSk,72919,6,AmeriFlux,Reynolds Creek Wyoming big sagebrush,43.1675,-116.7132,AmeriFlux;LTAR;Phenocam,2014,2023
+US-SD1,CRO,Dfa,25904,3,AmeriFlux,Shatto Ditch Paired Cropland - Site 1 (Corn/Soy; No Cover Crops),41.2048,-86.0296,AmeriFlux,2023,2025
+US-SD2,CRO,Dfa,19254,3,AmeriFlux,Shatto Ditch Paired Cropland - Site 2 (Corn/Soy; Cover Crops),41.1785,-85.9977,AmeriFlux,2023,2025
+US-SHC,ENF,Dsb,31849,3,AmeriFlux,Sagehen Creek Field Station,39.4315,-120.2398,AmeriFlux;Phenocam,2017,2020
+US-SP1,ENF,Cfa,28256,3,AmeriFlux,Slashpine-Austin Cary- 65yrs nat regen,29.7381,-82.2188,AmeriFlux;Phenocam,2000,2020
+US-SRG,GRA,BSk,92918,8,AmeriFlux,Santa Rita Grassland,31.7894,-110.8277,AmeriFlux;LTAR;Phenocam,2008,2025
+US-SRM,WSA,BSh,81049,8,AmeriFlux,Santa Rita Mesquite,31.8214,-110.8661,AmeriFlux;LTAR;Phenocam,2004,2025
+US-SRS,WSA,BSh,10029,1,AmeriFlux,Santa Rita Savanna,31.8173,-110.8508,AmeriFlux,2011,2018
+US-Sne,GRA,Csa,42796,3,AmeriFlux,Sherman Island Restored Wetland,38.0369,-121.7547,AmeriFlux;Phenocam,2016,2020
+US-Snf,GRA,Csa,22110,3,AmeriFlux,Sherman Barn,38.0402,-121.7272,AmeriFlux;Phenocam,2018,2020
+US-TLR,MF,Cfa,9022,1,AmeriFlux,Timberlake Observatory for Wetland Restoration (TOWeR),35.9168,-76.1463,AmeriFlux,2024,2024
+US-Ton,WSA,Csa,75984,8,AmeriFlux,Tonzi Ranch,38.4309,-120.966,AmeriFlux;Phenocam,2001,2025
+US-Tw3,CRO,Csa,4262,1,AmeriFlux,Twitchell Alfalfa,38.1152,-121.6469,AmeriFlux;Phenocam,2013,2018
+US-Tw4,WET,Csa,84232,7,AmeriFlux,Twitchell East End Wetland,38.1027,-121.6413,AmeriFlux;Phenocam,2013,2024
+US-UC1,CVM,Dfa,65835,6,AmeriFlux,LTAR UCB (Upper Chesapeake Bay) EC1,40.7536,-78.0056,AmeriFlux;LTAR,2019,2024
+US-UC2,CVM,Dfa,64270,6,AmeriFlux,LTAR UCB (Upper Chesapeake Bay) EC2,40.7559,-77.9998,AmeriFlux;LTAR,2019,2024
+US-UTB,BSV,BWk,7173,3,AmeriFlux,UFLUX Bonneville Salt Flats,40.7848,-113.8299,AmeriFlux;UFLUX,2021,2023
+US-UTD,CRO,BSk,10114,2,AmeriFlux,UFLUX Dugout Ranch,38.1038,-109.5952,AmeriFlux;UFLUX,2023,2024
+US-UTE,CRO,BWk,14808,2,AmeriFlux,UFLUX Escalante,37.7353,-111.5708,AmeriFlux;UFLUX,2024,2025
+US-UTJ,CRO,BWk,12269,2,AmeriFlux,UFLUX Bluff,37.2818,-109.5348,AmeriFlux;UFLUX,2024,2025
+US-UTW,CRO,BWk,29751,4,AmeriFlux,UFLUX Wellington,39.4453,-110.7288,AmeriFlux;UFLUX,2021,2024
+US-UiE,CRO,Dfa,80053,7,AmeriFlux,University of Illinois Sorghum-Soy,40.0629,-88.2033,AmeriFlux,2018,2024
+US-UiF,CRO,Dfa,61662,6,AmeriFlux,University of Illinois Miscanthus 2,40.0665,-88.2015,AmeriFlux,2018,2023
+US-UiG,CRO,Dfa,68231,6,AmeriFlux,University of Illinois Maize-Soy 2,40.0629,-88.2009,AmeriFlux,2018,2023
+US-VT1,CRO,Dfa,23685,3,AmeriFlux,Vermillion Tributary Paired Cropland – Site 1 (Corn/Soy; No Cover Crops),40.4064,-87.5214,AmeriFlux,2023,2025
+US-VT2,CRO,Dfa,22901,3,AmeriFlux,Vermillion Tributary Paired Cropland – Site 2 (Corn/Soy; Cover Crops),40.4018,-87.5213,AmeriFlux,2023,2025
+US-ZF2,CRO,Dfa,12975,2,AmeriFlux,Zumwalt Farm Control,40.7939,-87.5355,AmeriFlux,2024,2025
+US-xAE,GRA,Cfa,61686,6,AmeriFlux,NEON Klemme Range Research Station (OAES),35.4106,-99.0588,AmeriFlux;NEON;Phenocam,2019,2024
+US-xBL,DBF,Cfa,49846,6,AmeriFlux,NEON Blandy Experimental Farm (BLAN),39.0603,-78.0716,AmeriFlux;NEON;Phenocam,2019,2024
+US-xBR,DBF,Dfb,69741,6,AmeriFlux,NEON Bartlett Experimental Forest (BART),44.0639,-71.2873,AmeriFlux;NEON;Phenocam,2019,2024
+US-xCL,GRA,Cfa,59134,6,AmeriFlux,NEON LBJ National Grassland (CLBJ),33.4012,-97.57,AmeriFlux;NEON;Phenocam,2019,2024
+US-xCP,GRA,BSk,46377,6,AmeriFlux,NEON Central Plains Experimental Range (CPER),40.8155,-104.7456,AmeriFlux;NEON;Phenocam,2019,2024
+US-xDL,MF,Cfa,52524,6,AmeriFlux,NEON Dead Lake (DELA),32.5417,-87.8039,AmeriFlux;NEON;Phenocam,2019,2024
+US-xDS,CVM,Cfa,50302,6,AmeriFlux,NEON Disney Wilderness Preserve (DSNY),28.125,-81.4362,AmeriFlux;NEON;Phenocam,2019,2024
+US-xGR,DBF,Cfb,63998,6,AmeriFlux,"NEON Great Smoky Mountains National Park, Twin Creeks (GRSM)",35.689,-83.5019,AmeriFlux;NEON;Phenocam,2019,2024
+US-xJE,ENF,Cfa,54245,6,AmeriFlux,NEON Jones Ecological Research Center (JERC),31.1948,-84.4686,AmeriFlux;NEON;Phenocam,2019,2024
+US-xJR,OSH,BWh,49391,6,AmeriFlux,NEON Jornada LTER (JORN),32.5907,-106.8425,AmeriFlux;NEON;Phenocam,2019,2024
+US-xKZ,GRA,Dfa,63419,6,AmeriFlux,NEON Konza Prairie Biological Station (KONZ),39.1008,-96.5631,AmeriFlux;NEON;Phenocam,2019,2024
+US-xMB,OSH,BSk,48262,6,AmeriFlux,NEON Moab (MOAB),38.2483,-109.3883,AmeriFlux;NEON;Phenocam,2019,2024
+US-xML,DBF,Dfb,50578,6,AmeriFlux,NEON Mountain Lake Biological Station (MLBS),37.3783,-80.5248,AmeriFlux;NEON;Phenocam,2019,2024
+US-xNG,GRA,Dfb,41215,6,AmeriFlux,NEON Northern Great Plains Research Laboratory (NOGP),46.7697,-100.9154,AmeriFlux;NEON;Phenocam,2019,2024
+US-xNQ,OSH,BSk,39213,5,AmeriFlux,NEON Onaqui-Ault (ONAQ),40.1776,-112.4524,AmeriFlux;NEON;Phenocam,2019,2024
+US-xPU,EBF,Cfb,52297,6,AmeriFlux,NEON Pu'u Maka'ala Natural Area Reserve (PUUM),19.5531,-155.3173,AmeriFlux;NEON,2019,2024
+US-xSB,ENF,Cfa,46516,6,AmeriFlux,NEON Ordway-Swisher Biological Station (OSBS),29.6893,-81.9934,AmeriFlux;NEON;Phenocam,2019,2024
+US-xSC,DBF,Cfa,48722,6,AmeriFlux,NEON Smithsonian Conservation Biology Institute (SCBI),38.8929,-78.1395,AmeriFlux;NEON;Phenocam,2019,2024
+US-xSE,DBF,Cfa,66725,6,AmeriFlux,NEON Smithsonian Environmental Research Center (SERC),38.8901,-76.56,AmeriFlux;NEON;Phenocam,2019,2024
+US-xSJ,SAV,Csa,48326,6,AmeriFlux,NEON San Joaquin Experimental Range (SJER),37.1088,-119.7323,AmeriFlux;NEON,2019,2024
+US-xSL,CRO,BSk,46772,6,AmeriFlux,"NEON North Sterling, CO (STER)",40.4619,-103.0293,AmeriFlux;NEON,2019,2024
+US-xSP,ENF,Csa,54457,6,AmeriFlux,NEON Soaproot Saddle (SOAP),37.0334,-119.2622,AmeriFlux;NEON;Phenocam,2019,2024
+US-xSR,OSH,BWh,46909,6,AmeriFlux,NEON Santa Rita Experimental Range (SRER),31.9107,-110.8355,AmeriFlux;NEON;Phenocam,2019,2024
+US-xST,DBF,Dfb,51160,6,AmeriFlux,NEON Steigerwaldt Land Services (STEI),45.5089,-89.5864,AmeriFlux;NEON;Phenocam,2019,2024
+US-xTE,ENF,Dsb,43719,6,AmeriFlux,NEON Lower Teakettle (TEAK),37.0058,-119.006,AmeriFlux;NEON,2019,2024
+US-xTR,DBF,Dfb,53035,6,AmeriFlux,NEON Treehaven (TREE),45.4937,-89.5857,AmeriFlux;NEON;Phenocam,2019,2024
+US-xUK,DBF,Dfa,59384,5,AmeriFlux,NEON The University of Kansas Field Station (UKFS),39.0404,-95.1921,AmeriFlux;NEON;Phenocam,2019,2024
+US-xUN,MF,Dfb,63411,6,AmeriFlux,NEON University of Notre Dame Environmental Research Center (UNDE),46.2339,-89.5373,AmeriFlux;NEON;Phenocam,2019,2024
+US-xWR,ENF,Csb,30400,3,AmeriFlux,NEON Wind River Experimental Forest (WREF),45.8205,-121.9519,AmeriFlux;NEON;Phenocam,2019,2024
+US-xYE,ENF,Dfb,40466,6,AmeriFlux,NEON Yellowstone Northern Range (Frog Rock) (YELL),44.9535,-110.5391,AmeriFlux;NEON,2019,2024
+ZA-BfK,OSH,BSh,53126,5,ICOS,Benfontien Karoo,-28.856483,24.83985,EFTEON SAEON;European Fluxes Database,2020,2024
+ZA-BfS,OSH,BSh,46740,5,ICOS,Benfontien Savanna,-28.8906,24.86112,EFTEON SAEON;European Fluxes Database,2020,2024
+ZA-Jks,GRA,Csb,4473,1,ICOS,Jonkershoek,-33.99029,18.95543,EFTEON SAEON;European Fluxes Database,2024,2024
+ZA-Spk,GRA,Cwa,22327,2,ICOS,Spioenkop,-28.70408,29.52614,EFTEON SAEON;European Fluxes Database,2023,2024
+ZA-Uby,GRA,Aw,26211,2,ICOS,Umhlabuyalingana,-27.3952,32.5889,EFTEON SAEON;European Fluxes Database,2023,2024

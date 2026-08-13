@@ -7,11 +7,14 @@ import numpy as np
 import pandas as pd
 from statsmodels.formula.api import ols
 from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison
+from scipy.stats import mannwhitneyu
 from pathlib import Path
 import geopandas as gpd
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.patches as mpatches
+import matplotlib.patheffects as pe
+from matplotlib.lines import Line2D
 
 
 # === Palettes ===
@@ -62,6 +65,24 @@ koppen_label_color_palette = {
 # =================================================================
 # DEPENDENCIES FOR USED FUNCTIONS
 # =================================================================
+
+def hemisphere_adjust_doy(timestamps, lats):
+    """Day-of-year, shifted by half a year for Southern Hemisphere rows so
+    both hemispheres' summers land on the same nominal day (~day 180) and
+    their winters land at the edges (~day 1 / day 365) -- instead of a
+    Southern Hemisphere summer (real DOY ~330-60) being averaged directly
+    against a Northern Hemisphere summer (real DOY ~150-210) at the same
+    calendar day, which smears or cancels the true seasonal cycle for any
+    category (vegetation type, climate class) that mixes hemispheres.
+    """
+    doy = timestamps.dt.dayofyear.to_numpy()
+    days_in_year = np.where(timestamps.dt.is_leap_year.to_numpy(), 366, 365)
+    is_south = (lats < 0).to_numpy()
+    shift = days_in_year // 2
+    adjusted = doy.copy()
+    adjusted[is_south] = ((doy[is_south] + shift[is_south] - 1) % days_in_year[is_south]) + 1
+    return pd.Series(adjusted, index=timestamps.index)
+
 
 def apply_lowess(group, variable, frac=0.2):
     """Apply LOWESS smoothing to a variable per group, ensuring DOY is sorted."""
@@ -118,18 +139,27 @@ def plot_violin(df_wue_daily, grouping_category, ax, title):
         .index
         .tolist()
     )
-    sns.violinplot(x=grouping_category, y='WUE', data=df_wue_daily, palette=color_map, 
+    sns.violinplot(x=grouping_category, y='WUE', data=df_wue_daily, palette=color_map,
                     inner='quartile', order=median_wue_order ,scale='area', cut=0, ax=ax)
+    # Compact letter designations, placed above the axes (axes-fraction y,
+    # data-space x) rather than below in the 0-to-negative margin -- this
+    # keeps them clear of the violins regardless of how the y-limit below
+    # is chosen, and off the x-tick labels underneath.
     for i, vegetation in enumerate(median_wue_order):
-        y = -0.5
         letter = group_letters[vegetation]
-        ax.text(i+0.2, y, letter, ha='center', va='bottom', fontsize=16, fontweight='bold')
-    ax.set_title(title, fontsize=20)
-    ax.set_xlabel(grouping_category, fontsize=16)
-    ax.set_ylabel('WUE [gC kg$^{-1}$H$_2$O]', fontsize=16)
+        ax.text(i, 1.03, letter, transform=ax.get_xaxis_transform(),
+                ha='center', va='bottom', fontsize=21)
+    # pad=30 leaves room between the title and the letters row above the axes
+    ax.set_title(title, fontsize=26, pad=30)
+    ax.set_xlabel(grouping_category, fontsize=21)
+    ax.set_ylabel('WUE \n [gC kg$^{-1}$H$_2$O]', fontsize=21)
+    # WUE is heavily right-skewed (occasional very large values when ET is
+    # near zero -- daily FLUXNET WUE ranges up to 80), so this is a deliberate
+    # zoomed-in view onto the bulk of the distribution, not the full range;
+    # see the truncation note added by the calling figure-level function.
     ax.set_ylim(0, 6)
-    ax.tick_params(axis='x', rotation=45, labelsize=16)
-    ax.tick_params(axis='y', labelsize=16)
+    ax.tick_params(axis='x', rotation=45, labelsize=21)
+    ax.tick_params(axis='y', labelsize=21)
 
 
 def compute_diurnal_centroid(df, hour_col='Hour', weight_col='WUE'):
@@ -141,6 +171,8 @@ def compute_diurnal_centroid(df, hour_col='Hour', weight_col='WUE'):
 
 
 def hour_to_timestamp(hour_float):
+    if pd.isna(hour_float):
+        return np.nan
     h = int(hour_float)
     m = int((hour_float - h) * 60)
     return f"{h:02d}:{m:02d}"
@@ -173,11 +205,15 @@ def plot_seasonal_cycles_comparison(
 
     assert len(variables) == 3, "Please provide exactly 3 variables"
 
-    # Copy + add DOY
+    # Copy + add hemisphere-adjusted DOY (see hemisphere_adjust_doy) -- several
+    # vegetation/climate categories mix Northern and Southern Hemisphere sites
+    # at very different ratios between FLUXNET and ECOCO3, so a raw calendar
+    # DOY would blend opposite-phase seasonal cycles and make cross-dataset
+    # comparisons at the category level unreliable.
     df_ecoco3 = df_ecoco3.copy()
     df_fluxnet = df_fluxnet.copy()
-    df_ecoco3['DOY'] = df_ecoco3['TIMESTAMP'].dt.dayofyear
-    df_fluxnet['DOY'] = df_fluxnet['TIMESTAMP'].dt.dayofyear
+    df_ecoco3['DOY'] = hemisphere_adjust_doy(df_ecoco3['TIMESTAMP'], df_ecoco3['Lat'])
+    df_fluxnet['DOY'] = hemisphere_adjust_doy(df_fluxnet['TIMESTAMP'], df_fluxnet['Lat'])
 
     # -----------------------------------------
     # Select grouping + color palette
@@ -204,12 +240,12 @@ def plot_seasonal_cycles_comparison(
     # Create figure (3 rows × 2 columns), share y per row
     # -----------------------------------------
     fig, axes = plt.subplots(
-        nrows=3, ncols=2, figsize=(16, 12), 
+        nrows=3, ncols=2, figsize=(16, 16),
         sharex=True, sharey='row'  # <- share y-axis for columns
     )
     fig.suptitle(
         f"Seasonal cycles by {title_suffix}: FLUXNET vs ECOCO3",
-        fontsize=28
+        fontsize=36
     )
 
     panel_labels = ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)']
@@ -242,7 +278,7 @@ def plot_seasonal_cycles_comparison(
             ax.text(
                 0.02, 0.92, panel_labels[label_idx],
                 transform=ax.transAxes,
-                fontsize=14,
+                fontsize=18,
                 fontweight='bold',
                 va='top',
                 ha='left'
@@ -251,29 +287,41 @@ def plot_seasonal_cycles_comparison(
 
             # Titles (top row only)
             if i == 0:
-                ax.set_title(col_title, fontsize=24)
+                ax.set_title(col_title, fontsize=31)
 
             # Y labels (left column only)
             if j == 0:
-                ax.set_ylabel(y_labels[i] if y_labels else variable, fontsize=22)
-                ax.tick_params(axis='y', labelsize=20)
+                ax.set_ylabel(y_labels[i] if y_labels else variable, fontsize=29)
+                ax.tick_params(axis='y', labelsize=26)
 
             ax.set_xlim(1, 366)
             ax.set_ylim(ylims[i])
 
-            # Legend only once
-            if i == 0 and j == 0:
-                ax.legend(ncol=2, fontsize=16, frameon=False)
-
     # X label bottom row
     for ax in axes[-1, :]:
-        ax.set_xlabel('Day of Year', fontsize=22)
-        ax.tick_params(axis='x', labelsize=20)
+        ax.set_xlabel('Day of Year', fontsize=29)
+        ax.tick_params(axis='x', labelsize=26)
 
-    plt.tight_layout()
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    n_legend_rows = -(-len(handles) // 6)  # ceil(n / ncol)
+    fig.legend(
+        handles, labels, loc='lower center', ncol=6, fontsize=21,
+        frameon=False, bbox_to_anchor=(0.5, -0.03)
+    )
+
+    # Bottom margin scales with legend row count (up to 15 groups -> 3 rows
+    # for kg_label; only 6-8 -> 1-2 rows for Veg), top margin reserves room
+    # for the large suptitle -- both previously fixed and too small, which
+    # let the legend collide with the bottom row's x-axis and the suptitle
+    # collide with the top row's column titles.
+    bottom_margin = 0.03 + 0.028 * (n_legend_rows - 1)
+    # h_pad gives the rows breathing room -- the two-line y-labels
+    # ("GPP\n[gC m-2 day-1]" etc.) were tall enough to collide vertically
+    # between adjacent rows without it.
+    plt.tight_layout(rect=[0, bottom_margin, 1, 0.965], h_pad=1.5)
 
     if output_path is not None:
-        plt.savefig(output_path, dpi=300)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -329,23 +377,136 @@ def plot_seasonal_cycles_comparison_new(
                 ax.plot(sub['DOY'], smoothed, color=color, linestyle=linestyle,
                         linewidth=2, label=label, alpha=alpha)
 
-        ax.set_ylabel(ylabel, fontsize=13)
+        ax.set_ylabel(ylabel, fontsize=17)
         ax.set_xlim(1, 366)
         ax.grid(alpha=0.3)
         if ylims is not None and i < len(ylims):
             ax.set_ylim(ylims[i])
         ax.text(0.02, 0.93, panel_labels[i], transform=ax.transAxes,
-                fontsize=13, fontweight='bold', va='top')
+                fontsize=17, fontweight='bold', va='top')
         if i == 0:
-            ax.legend(ncol=2, fontsize=8, frameon=False)
+            ax.legend(ncol=2, fontsize=10, frameon=False)
 
-    axes[-1].set_xlabel('Day of Year', fontsize=13)
+    axes[-1].set_xlabel('Day of Year', fontsize=17)
     plt.suptitle(f'Seasonal cycles by {group_type} — FLUXNET (solid) vs ECOCO3 (dashed)',
-                 fontsize=14)
+                 fontsize=18)
     plt.tight_layout()
     if output_path is not None:
         plt.savefig(output_path, dpi=300)
     plt.show()
+
+
+def plot_seasonal_cycles_by_site(
+    df_fluxnet,
+    df_ecoco3,
+    group_type='Veg',
+    valid_veg=None,
+    valid_kg=None,
+    variables=('GPP', 'ET', 'WUE'),
+    y_labels=None,
+    frac=0.3,
+    output_dir=None
+):
+    """One PNG per group (vegetation type or climate class), GPP/ET/WUE as
+    stacked panels. Each FLUXNET site's raw daily-mean seasonal cycle is
+    drawn as its own thin line; each ECOCO3 observation is drawn as a raw
+    scatter point (ECOCO3 pixels aren't discrete repeat-sampled sites the
+    way FLUXNET towers are, so there's no natural per-site line to draw for
+    it). A smoothed group-mean line is added for each dataset, in the same
+    FLUXNET/ECOCO3 color pair used elsewhere in this module (e.g.
+    plot_morning_midday_violin).
+
+    Uses hemisphere_adjust_doy rather than raw calendar day-of-year, since
+    several groups mix Northern and Southern Hemisphere sites/pixels at
+    different ratios between the two datasets (see hemisphere_adjust_doy's
+    docstring) -- without it, this per-site breakdown would reintroduce the
+    same hemisphere-blending confound fixed in plot_seasonal_cycles_comparison.
+
+    Writes one file per group directly into output_dir (no subfolders):
+    seasonal_cycles_{group_type}_{group}.png.
+    """
+    if group_type == 'Veg':
+        group_col, valid_groups = 'Veg', valid_veg
+    elif group_type == 'kg_label':
+        group_col, valid_groups = 'kg_label', valid_kg
+    else:
+        raise ValueError("group_type must be 'Veg' or 'kg_label'")
+
+    y_labels = list(y_labels) if y_labels is not None else list(variables)
+    flux_color = '#4DAC26'
+    rs_color   = '#7B2D8B'
+
+    flux = df_fluxnet.copy()
+    eco = df_ecoco3.copy()
+    flux['DOY'] = hemisphere_adjust_doy(flux['TIMESTAMP'], flux['Lat'])
+    eco['DOY'] = hemisphere_adjust_doy(eco['TIMESTAMP'], eco['Lat'])
+
+    if valid_groups is not None:
+        flux = flux[flux[group_col].isin(valid_groups)]
+        eco = eco[eco[group_col].isin(valid_groups)]
+
+    groups = sorted(set(flux[group_col].dropna()) & set(eco[group_col].dropna()))
+
+    out_dir = Path(output_dir) if output_dir is not None else Path('.')
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    legend_handles = [
+        Line2D([0], [0], color=flux_color, alpha=0.4, linewidth=1.5, label='FLUXNET site'),
+        Line2D([0], [0], color=flux_color, linewidth=3, label='FLUXNET mean'),
+        Line2D([0], [0], marker='o', linestyle='none', color=rs_color, alpha=0.5,
+               markersize=7, label='ECOCO3 obs'),
+        Line2D([0], [0], color=rs_color, linewidth=3, label='ECOCO3 mean'),
+    ]
+
+    for grp in groups:
+        flux_grp = flux[flux[group_col] == grp]
+        eco_grp = eco[eco[group_col] == grp]
+
+        fig, axes = plt.subplots(len(variables), 1, figsize=(10, 4 * len(variables)), sharex=True)
+        if len(variables) == 1:
+            axes = [axes]
+
+        for i, (var, ylabel) in enumerate(zip(variables, y_labels)):
+            ax = axes[i]
+
+            for site, dsite in flux_grp.groupby('Site'):
+                site_doy = dsite.groupby('DOY')[var].mean().reset_index().sort_values('DOY')
+                if len(site_doy) < 2:
+                    continue
+                ax.plot(site_doy['DOY'], site_doy[var], color=flux_color,
+                        alpha=0.3, linewidth=1)
+
+            flux_doy = flux_grp.groupby('DOY')[var].mean().reset_index().sort_values('DOY')
+            if len(flux_doy) > 5:
+                flux_smooth = sm.nonparametric.lowess(
+                    endog=flux_doy[var], exog=flux_doy['DOY'], frac=frac, return_sorted=False)
+                ax.plot(flux_doy['DOY'], flux_smooth, color=flux_color, linewidth=3, zorder=5)
+
+            ax.scatter(eco_grp['DOY'], eco_grp[var], color=rs_color, alpha=0.25,
+                       s=10, edgecolor='none', zorder=3)
+
+            eco_doy = eco_grp.groupby('DOY')[var].mean().reset_index().sort_values('DOY')
+            if len(eco_doy) > 5:
+                eco_smooth = sm.nonparametric.lowess(
+                    endog=eco_doy[var], exog=eco_doy['DOY'], frac=frac, return_sorted=False)
+                ax.plot(eco_doy['DOY'], eco_smooth, color=rs_color, linewidth=3, zorder=5)
+
+            ax.set_ylabel(ylabel, fontsize=15)
+            ax.set_xlim(1, 366)
+            ax.grid(alpha=0.3)
+            ax.text(0.02, 0.93, f'({chr(97 + i)})', transform=ax.transAxes,
+                    fontsize=15, fontweight='bold', va='top')
+
+            if i == 0:
+                ax.legend(handles=legend_handles, fontsize=10, frameon=False, ncol=2)
+
+        axes[-1].set_xlabel('Day of Year', fontsize=15)
+        fig.suptitle(f'Seasonal cycles — {group_type}: {grp}', fontsize=18)
+        plt.tight_layout()
+
+        plt.savefig(out_dir / f"seasonal_cycles_{group_type}_{grp}.png", dpi=300, bbox_inches='tight')
+        plt.close(fig)
+
 
 def plot_merged_diurnal_cycles(
     df_flux,
@@ -367,15 +528,15 @@ def plot_merged_diurnal_cycles(
     rs_color   = '#7B2D8B'
 
     fig, axes = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
-    fig.suptitle(title, fontsize=24)
+    fig.suptitle(title, fontsize=31)
 
     panel_labels = ['(a)', '(b)', '(c)']
 
     variables = ['GPP', 'ET', 'WUE']
     y_labels = [
-        'GPP [µmol CO$_2$ m$^{-2}$ s$^{-1}$]',
-        'ET [W m$^{-2}$]',
-        'WUE [gC kg$^{-1}$ H$_2$O]'
+        'GPP \n [µmol CO$_2$ m$^{-2}$ s$^{-1}$]',
+        'ET \n [W m$^{-2}$]',
+        'WUE \n [gC kg$^{-1}$ H$_2$O]'
     ]
 
     results = []
@@ -482,7 +643,7 @@ def plot_merged_diurnal_cycles(
         # ---- Panel formatting
         ax.text(0.02, 0.92, panel_labels[i],
                 transform=ax.transAxes,
-                fontsize=14,
+                fontsize=18,
                 fontweight='bold',
                 va='top',
                 ha='left')
@@ -493,17 +654,17 @@ def plot_merged_diurnal_cycles(
             f"Δ = {observed_delta:.2f}\n({observed_pct:.1f}%)",
             transform=ax.transAxes,
             ha='right',
-            fontsize=16
+            fontsize=21
         )
 
 
-        ax.set_ylabel(y_labels[i], fontsize=20)
+        ax.set_ylabel(y_labels[i], fontsize=24)
         ax.set_xlim(0, 24)
         ax.grid(True)
-        ax.legend(frameon=False, fontsize=18)
-        ax.tick_params(axis='both', labelsize=16)
+        ax.legend(frameon=False, fontsize=23)
+        ax.tick_params(axis='both', labelsize=21)
 
-    axes[-1].set_xlabel('Hour of Day', fontsize=20)
+    axes[-1].set_xlabel('Hour of Day', fontsize=26)
 
     plt.tight_layout()
     if output_path is not None:
@@ -513,25 +674,753 @@ def plot_merged_diurnal_cycles(
 
     return pd.DataFrame(results)
 
+
+def _bootstrap_diurnal_centroid(hours, values, n_boot, rng):
+    """Stratified-by-hour bootstrap: resample each hour's values with
+    replacement, recompute the hourly means, then the weighted diurnal
+    centroid (hour and interpolated value) for each of n_boot draws."""
+    unique_hours = np.unique(hours)
+    idx_by_hour = [np.where(hours == h)[0] for h in unique_hours]
+
+    boot_hour = np.empty(n_boot)
+    boot_val = np.empty(n_boot)
+    for b in range(n_boot):
+        means = np.array([
+            values[idxs[rng.integers(0, len(idxs), len(idxs))]].mean()
+            for idxs in idx_by_hour
+        ])
+        boot_hour[b] = np.sum(unique_hours * means) / np.sum(means)
+        boot_val[b] = np.interp(boot_hour[b], unique_hours, means)
+    return boot_hour, boot_val
+
+
+def plot_diurnal_veg_comparison(
+    df_fluxnet,
+    df_ecoco3,
+    valid_veg,
+    var='WUE',
+    y_label='WUE [gC kg$^{-1}$ H$_2$O]',
+    morning_hours=(6, 7, 8, 9),
+    midday_hours=(11, 12, 13),
+    n_boot=500,
+    random_state=42,
+    output_path=None
+):
+    """Full diurnal cycles by vegetation type — FLUXNET (a) vs ECOCO3 (b), each
+    marked with its diurnal centroid — plus a bottom row of dumbbell
+    comparisons: centroid WUE magnitude per veg (c), centroid hour per veg
+    (d), and morning-minus-midday WUE Δ per veg (e). Pairs where a bootstrap's
+    95% CI on the FLUXNET-ECOCO3 difference excludes zero are marked with '*'.
+
+    Returns (centroids, comparisons): per-(veg, dataset) centroid estimates,
+    and per-veg FLUXNET-ECOCO3 differences with bootstrap CIs and
+    significance flags.
+    """
+    flux_color = '#4DAC26'
+    rs_color   = '#7B2D8B'
+    rng = np.random.default_rng(random_state)
+
+    stats_cache = {}
+    boot_cache = {}
+    delta_boot_cache = {}
+    records = []
+    for veg in valid_veg:
+        for label, df in [('FLUXNET', df_fluxnet), ('ECOCO3', df_ecoco3)]:
+            sub = df[df['Veg'] == veg]
+            if sub.empty:
+                continue
+            stats = get_stats(sub, var)
+            stats_cache[(veg, label)] = stats
+            centroid_hour = compute_diurnal_centroid(stats, 'Hour', f'{var}_avg')
+            centroid_val = np.interp(centroid_hour, stats['Hour'], stats[f'{var}_avg'])
+            records.append({'Veg': veg, 'Dataset': label, 'Hour': centroid_hour, 'Value': centroid_val})
+
+            boot_cache[(veg, label)] = _bootstrap_diurnal_centroid(
+                sub['Hour'].values, sub[var].values, n_boot, rng
+            )
+
+            morning_vals = sub.loc[sub['Hour'].isin(morning_hours), var].dropna().values
+            midday_vals  = sub.loc[sub['Hour'].isin(midday_hours), var].dropna().values
+            if len(morning_vals) > 0 and len(midday_vals) > 0:
+                delta_boot_cache[(veg, label)] = _bootstrap_delta(morning_vals, midday_vals, n_boot, rng)
+    centroids = pd.DataFrame(records)
+    veg_order = [v for v in valid_veg if v in set(centroids['Veg'])]
+
+    # ── Bootstrap significance of the FLUXNET vs ECOCO3 difference, per veg ─
+    comparisons = []
+    for veg in veg_order:
+        row = {'Veg': veg}
+        if (veg, 'FLUXNET') in boot_cache and (veg, 'ECOCO3') in boot_cache:
+            fb_hour, fb_val = boot_cache[(veg, 'FLUXNET')]
+            eb_hour, eb_val = boot_cache[(veg, 'ECOCO3')]
+
+            diff_hour = fb_hour - eb_hour
+            diff_val  = fb_val - eb_val
+            ci_hour = np.percentile(diff_hour, [2.5, 97.5])
+            ci_val  = np.percentile(diff_val, [2.5, 97.5])
+
+            row.update({
+                'Hour_diff': diff_hour.mean(),
+                'Hour_CI_low': ci_hour[0], 'Hour_CI_high': ci_hour[1],
+                'Hour_sig': not (ci_hour[0] <= 0 <= ci_hour[1]),
+                'Value_diff': diff_val.mean(),
+                'Value_CI_low': ci_val[0], 'Value_CI_high': ci_val[1],
+                'Value_sig': not (ci_val[0] <= 0 <= ci_val[1]),
+            })
+        if (veg, 'FLUXNET') in delta_boot_cache and (veg, 'ECOCO3') in delta_boot_cache:
+            diff_delta = delta_boot_cache[(veg, 'FLUXNET')] - delta_boot_cache[(veg, 'ECOCO3')]
+            ci_delta = np.percentile(diff_delta, [2.5, 97.5])
+            row.update({
+                'Delta_diff': diff_delta.mean(),
+                'Delta_CI_low': ci_delta[0], 'Delta_CI_high': ci_delta[1],
+                'Delta_sig': not (ci_delta[0] <= 0 <= ci_delta[1]),
+            })
+        comparisons.append(row)
+    comparisons = pd.DataFrame(comparisons).set_index('Veg')
+
+    # Variable name and units on separate lines for panels (a)/(c). Panel (e)
+    # builds its own label from the unsplit y_label (see below) since it
+    # already carries its own "(Morning - Midday)" line -- splitting units
+    # there too would make it three lines.
+    y_label_nl = y_label.replace(' [', ' \n[', 1)
+
+    fig = plt.figure(figsize=(38, 22))
+    gs = fig.add_gridspec(2, 6, hspace=0.3, wspace=0.7)
+    ax_flux  = fig.add_subplot(gs[0, 0:3])
+    ax_eco   = fig.add_subplot(gs[0, 3:6])
+    ax_value = fig.add_subplot(gs[1, 0:2])
+    ax_time  = fig.add_subplot(gs[1, 2:4])
+    ax_delta = fig.add_subplot(gs[1, 4:6])
+
+    # ── Row 1: full diurnal curves, centroid marked with X ──────────────────
+    for ax, label, panel in zip([ax_flux, ax_eco], ['FLUXNET', 'ECOCO3'], ['(a)', '(b)']):
+        for veg in valid_veg:
+            if (veg, label) not in stats_cache:
+                continue
+            stats = stats_cache[(veg, label)]
+            color = veg_color_palette.get(veg, 'gray')
+            ax.plot(stats['Hour'], stats[f'{var}_avg'], marker='o', color=color, label=veg)
+
+            centroid_row = centroids[(centroids['Veg'] == veg) & (centroids['Dataset'] == label)]
+            ax.scatter(centroid_row['Hour'], centroid_row['Value'], s=150, marker='X',
+                       edgecolor='black', facecolor=color, zorder=5)
+
+        ax.text(0.02, 0.97, panel, transform=ax.transAxes, fontsize=42,
+                fontweight='bold', va='top', ha='left')
+        ax.set_title(label, fontsize=42)
+        ax.set_xlabel('Hour of Day', fontsize=34)
+        ax.set_xlim(0, 24)
+        ax.grid(alpha=0.3)
+        ax.tick_params(labelsize=28)
+
+    ax_flux.set_ylabel(y_label_nl, fontsize=34)
+    ax_eco.legend(title='Vegetation', bbox_to_anchor=(1.02, 1), loc='upper left',
+                  fontsize=26, title_fontsize=30, frameon=False)
+
+    # ── (c): centroid WUE magnitude, FLUXNET vs ECOCO3, per veg (dumbbell) ──
+    for x, veg in enumerate(veg_order):
+        flux_row = centroids[(centroids['Veg'] == veg) & (centroids['Dataset'] == 'FLUXNET')]
+        eco_row  = centroids[(centroids['Veg'] == veg) & (centroids['Dataset'] == 'ECOCO3')]
+        if flux_row.empty or eco_row.empty:
+            continue
+        fv = flux_row['Value'].values[0]
+        ev = eco_row['Value'].values[0]
+
+        ax_value.plot([x, x], [fv, ev], color='gray', lw=1.5, zorder=1)
+        ax_value.scatter(x, fv, s=150, marker='X', color=flux_color, edgecolor='black', zorder=3,
+                          label='FLUXNET' if x == 0 else None)
+        ax_value.scatter(x, ev, s=150, marker='X', color=rs_color, edgecolor='black', zorder=3,
+                          label='ECOCO3' if x == 0 else None)
+
+        if veg in comparisons.index and comparisons.loc[veg, 'Value_sig']:
+            offset = 0.06 * centroids['Value'].max()
+            ax_value.text(x, max(fv, ev) + offset, '*', fontsize=38,
+                          fontweight='bold', ha='center', va='bottom')
+
+    ax_value.set_xticks(range(len(veg_order)))
+    ax_value.set_xticklabels(veg_order, fontsize=28, rotation=45, ha='right')
+    ax_value.set_ylabel(y_label_nl, fontsize=34)
+    ax_value.set_title('Diurnal Centroid Magnitude', fontsize=38)
+    ax_value.text(0.02, 0.97, '(c)', transform=ax_value.transAxes, fontsize=42,
+                  fontweight='bold', va='top', ha='left')
+    ax_value.text(0.98, 0.03, f'* : bootstrap 95% CI excludes 0 (n={n_boot})',
+                  transform=ax_value.transAxes, fontsize=20, style='italic',
+                  ha='right', va='bottom')
+    ax_value.tick_params(axis='y', labelsize=26)
+    ax_value.grid(alpha=0.3, axis='y')
+    ax_value.legend(frameon=False, fontsize=26, loc='best')
+
+    # (a), (b), (c) all show WUE magnitude — put them on the same y-scale;
+    # add headroom above the data so the significance asterisks and panel
+    # tag never collide with the plotted lines/points.
+    y_min = min(ax_flux.get_ylim()[0], ax_eco.get_ylim()[0], ax_value.get_ylim()[0])
+    y_max = max(ax_flux.get_ylim()[1], ax_eco.get_ylim()[1], ax_value.get_ylim()[1])
+    y_max += 0.16 * (y_max - y_min)
+    for ax in [ax_flux, ax_eco, ax_value]:
+        ax.set_ylim(y_min, y_max)
+
+    # ── (d): centroid hour, FLUXNET vs ECOCO3, per veg (dumbbell) ───────────
+    for y, veg in enumerate(veg_order):
+        flux_row = centroids[(centroids['Veg'] == veg) & (centroids['Dataset'] == 'FLUXNET')]
+        eco_row  = centroids[(centroids['Veg'] == veg) & (centroids['Dataset'] == 'ECOCO3')]
+        if flux_row.empty or eco_row.empty:
+            continue
+        fh = flux_row['Hour'].values[0]
+        eh = eco_row['Hour'].values[0]
+
+        ax_time.plot([fh, eh], [y, y], color='gray', lw=1.5, zorder=1)
+        ax_time.scatter(fh, y, s=150, marker='X', color=flux_color, edgecolor='black', zorder=3,
+                        label='FLUXNET' if y == 0 else None)
+        ax_time.scatter(eh, y, s=150, marker='X', color=rs_color, edgecolor='black', zorder=3,
+                        label='ECOCO3' if y == 0 else None)
+
+        if veg in comparisons.index and comparisons.loc[veg, 'Hour_sig']:
+            ax_time.text(max(fh, eh) + 0.5, y, '*', fontsize=38,
+                         fontweight='bold', ha='left', va='center')
+
+    ax_time.set_yticks(range(len(veg_order)))
+    ax_time.set_yticklabels(veg_order, fontsize=28)
+    # extra padding above/below the outer rows so significance asterisks and
+    # the panel tag/caption never collide with the top/bottom dumbbells
+    ax_time.set_ylim(-1.3, len(veg_order) - 0.2)
+    ax_time.invert_yaxis()
+    ax_time.set_xlim(0, 24)
+    ax_time.set_title('Diurnal Centroid Time', fontsize=38)
+    ax_time.set_xlabel('Diurnal Centroid (Hour of Day)', fontsize=34)
+    ax_time.text(0.02, 0.97, '(d)', transform=ax_time.transAxes, fontsize=42,
+                 fontweight='bold', va='top', ha='left')
+    ax_time.text(0.98, 0.03, f'* : bootstrap 95% CI excludes 0 (n={n_boot})',
+                 transform=ax_time.transAxes, fontsize=20, style='italic',
+                 ha='right', va='bottom')
+    ax_time.tick_params(axis='x', labelsize=26)
+    ax_time.grid(alpha=0.3, axis='x')
+    ax_time.legend(frameon=False, fontsize=26, loc='upper right')
+
+    # ── (e): morning-minus-midday Δ, FLUXNET vs ECOCO3, per veg (dumbbell) ──
+    for x, veg in enumerate(veg_order):
+        if (veg, 'FLUXNET') not in delta_boot_cache or (veg, 'ECOCO3') not in delta_boot_cache:
+            continue
+        fd = delta_boot_cache[(veg, 'FLUXNET')].mean()
+        ed = delta_boot_cache[(veg, 'ECOCO3')].mean()
+
+        ax_delta.plot([x, x], [fd, ed], color='gray', lw=1.5, zorder=1)
+        ax_delta.scatter(x, fd, s=150, marker='X', color=flux_color, edgecolor='black', zorder=3,
+                          label='FLUXNET' if x == 0 else None)
+        ax_delta.scatter(x, ed, s=150, marker='X', color=rs_color, edgecolor='black', zorder=3,
+                          label='ECOCO3' if x == 0 else None)
+
+        if veg in comparisons.index and comparisons.loc[veg, 'Delta_sig']:
+            offset = 0.06 * (comparisons['Delta_diff'].abs().max() if 'Delta_diff' in comparisons else 1)
+            ax_delta.text(x, max(fd, ed) + offset, '*', fontsize=38,
+                          fontweight='bold', ha='center', va='bottom')
+
+    ax_delta.axhline(0, color='black', lw=1, linestyle='--', alpha=0.5, zorder=1)
+    ax_delta.set_xticks(range(len(veg_order)))
+    ax_delta.set_xticklabels(veg_order, fontsize=28, rotation=45, ha='right')
+    ax_delta.set_ylabel(f'Δ {y_label}\n(Morning − Midday)', fontsize=34)
+    ax_delta.set_title('Morning − Midday Δ', fontsize=38)
+    # headroom above the data so significance asterisks never collide with
+    # the title
+    y0, y1 = ax_delta.get_ylim()
+    ax_delta.set_ylim(y0, y1 + 0.2 * (y1 - y0))
+    ax_delta.text(0.02, 0.97, '(e)', transform=ax_delta.transAxes, fontsize=42,
+                  fontweight='bold', va='top', ha='left')
+    ax_delta.text(0.98, 0.03, f'* : bootstrap 95% CI excludes 0 (n={n_boot})',
+                  transform=ax_delta.transAxes, fontsize=20, style='italic',
+                  ha='right', va='bottom')
+    ax_delta.tick_params(axis='y', labelsize=26)
+    ax_delta.grid(alpha=0.3, axis='y')
+    ax_delta.legend(frameon=False, fontsize=26, loc='best')
+
+    plt.tight_layout()
+    if output_path is not None:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+    return centroids, comparisons
+
+
+def _bootstrap_delta(morning_vals, midday_vals, n_boot, rng):
+    """Bootstrap the difference in means (morning - midday) via independent
+    resampling of the morning and midday observations."""
+    n_m, n_d = len(morning_vals), len(midday_vals)
+    deltas = np.empty(n_boot)
+    for b in range(n_boot):
+        morning_mean = morning_vals[rng.integers(0, n_m, n_m)].mean()
+        midday_mean  = midday_vals[rng.integers(0, n_d, n_d)].mean()
+        deltas[b] = morning_mean - midday_mean
+    return deltas
+
+
+def plot_morning_midday_violin(
+    df_fluxnet,
+    df_ecoco3,
+    valid_veg,
+    var='WUE',
+    morning_hours=(6, 7, 8, 9),
+    midday_hours=(11, 12, 13),
+    n_boot=500,
+    random_state=42,
+    y_label='Δ WUE, Morning − Midday [gC kg$^{-1}$ H$_2$O]',
+    ylim=None,
+    output_path=None
+):
+    """Split violins of the bootstrap distribution of Δ(var) = morning mean −
+    midday mean, by vegetation type — FLUXNET on one half, ECOCO3 on the
+    other. Each violin is built from n_boot independent resamples of that
+    dataset's morning and midday observations (not paired by site-day):
+    ECOCO3's satellite target-mode sampling rarely captures both windows for
+    the same site on the same day, so day-pairing would leave it with almost
+    no data.
+
+    Vegetation types where the bootstrap 95% CI on FLUXNET's Δ minus
+    ECOCO3's Δ excludes zero (i.e. the two datasets' morning-midday shift
+    differs significantly) are marked with '*'.
+
+    Returns (delta_df, comparisons): the per-draw bootstrap deltas used to
+    build the violins, and per-veg FLUXNET-ECOCO3 differences with CIs and
+    significance flags.
+    """
+    flux_color = '#4DAC26'
+    rs_color   = '#7B2D8B'
+    rng = np.random.default_rng(random_state)
+
+    records = []
+    boot_cache = {}
+    for veg in valid_veg:
+        for label, df in [('FLUXNET', df_fluxnet), ('ECOCO3', df_ecoco3)]:
+            sub = df[df['Veg'] == veg]
+            morning_vals = sub.loc[sub['Hour'].isin(morning_hours), var].dropna().values
+            midday_vals  = sub.loc[sub['Hour'].isin(midday_hours), var].dropna().values
+            if len(morning_vals) == 0 or len(midday_vals) == 0:
+                continue
+            deltas = _bootstrap_delta(morning_vals, midday_vals, n_boot, rng)
+            boot_cache[(veg, label)] = deltas
+            records.extend({'Veg': veg, 'Dataset': label, 'Delta': d} for d in deltas)
+    delta_df = pd.DataFrame(records)
+
+    present_veg = [v for v in valid_veg if v in delta_df['Veg'].unique()]
+
+    # ── Significance of FLUXNET vs ECOCO3 Δ, per veg ─────────────────────────
+    comparison_records = []
+    for veg in present_veg:
+        if (veg, 'FLUXNET') not in boot_cache or (veg, 'ECOCO3') not in boot_cache:
+            continue
+        diff = boot_cache[(veg, 'FLUXNET')] - boot_cache[(veg, 'ECOCO3')]
+        ci = np.percentile(diff, [2.5, 97.5])
+        comparison_records.append({
+            'Veg': veg, 'Diff': diff.mean(),
+            'CI_low': ci[0], 'CI_high': ci[1],
+            'sig': not (ci[0] <= 0 <= ci[1]),
+        })
+    comparisons = pd.DataFrame(comparison_records).set_index('Veg')
+
+    fig, ax = plt.subplots(figsize=(16, 8))
+    sns.violinplot(
+        data=delta_df, x='Veg', y='Delta', hue='Dataset',
+        order=present_veg, hue_order=['FLUXNET', 'ECOCO3'],
+        split=True, inner='quartile', palette={'FLUXNET': flux_color, 'ECOCO3': rs_color},
+        cut=0, ax=ax
+    )
+    ax.axhline(0, color='black', lw=1, linestyle='--', zorder=1)
+
+    offset = 0.04 * (delta_df['Delta'].max() - delta_df['Delta'].min())
+    for x, veg in enumerate(present_veg):
+        if veg in comparisons.index and comparisons.loc[veg, 'sig']:
+            veg_max = delta_df.loc[delta_df['Veg'] == veg, 'Delta'].max()
+            ax.text(x, veg_max + offset, '*', fontsize=36, fontweight='bold',
+                    ha='center', va='bottom')
+
+    ax.set_xlabel('Vegetation', fontsize=31)
+    ax.set_ylabel(y_label, fontsize=31)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.tick_params(axis='x', rotation=45, labelsize=36)
+    ax.tick_params(axis='y', labelsize=36)
+    ax.grid(alpha=0.3, axis='y')
+    ax.legend(title='Dataset', fontsize=36, title_fontsize=36, frameon=False)
+    ax.text(0.99, 0.02,
+            f'violins built from {n_boot} bootstrap resamples per dataset\n'
+            f'* : bootstrap 95% CI on FLUXNET − ECOCO3 excludes 0',
+            transform=ax.transAxes, fontsize=36, style='italic', ha='right', va='bottom')
+
+    plt.tight_layout()
+    if output_path is not None:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+    return delta_df, comparisons
+
+
+def _fast_centroid(sub_hours, sub_values):
+    """Diurnal centroid (hour, interpolated value) from raw (Hour, value)
+    arrays — used inside the power-curve subsampling loop where pandas
+    groupby overhead matters."""
+    unique_hours = np.unique(sub_hours)
+    if len(unique_hours) < 2:
+        return np.nan, np.nan
+    means = np.array([sub_values[sub_hours == h].mean() for h in unique_hours])
+    if np.sum(means) == 0:
+        return np.nan, np.nan
+    centroid_hour = np.sum(unique_hours * means) / np.sum(means)
+    centroid_val = np.interp(centroid_hour, unique_hours, means)
+    return centroid_hour, centroid_val
+
+
+def _extend_to_actual(sample_sizes, n_available):
+    """Candidate sizes capped at n_available, with n_available itself
+    appended as the final point — so the curve reaches the actual available
+    sample size instead of stopping at the nearest candidate below it."""
+    sizes = sorted(set(s for s in sample_sizes if s < n_available) | {n_available})
+    return sizes
+
+
+def _repeats_for(n, n_repeats):
+    """Fewer repeats at very large n: each repeat is O(n) and the sampling
+    distribution is already tight, so fewer draws still give a stable width."""
+    return n_repeats if n <= 50_000 else max(30, n_repeats // 5)
+
+
+def _power_curve_centroid(hours, values, sample_sizes, n_repeats, rng):
+    """For each candidate sample size (extended to reach the actual n
+    available), draw independent random subsamples and recompute the diurnal
+    centroid — returns the 95% interval width of the resulting hour/value
+    estimates at each n."""
+    n_total = len(hours)
+    rows = []
+    for n in _extend_to_actual(sample_sizes, n_total):
+        reps = _repeats_for(n, n_repeats)
+        hour_ests, val_ests = [], []
+        for _ in range(reps):
+            idx = rng.integers(0, n_total, n)
+            h, v = _fast_centroid(hours[idx], values[idx])
+            if np.isfinite(h):
+                hour_ests.append(h)
+                val_ests.append(v)
+        if len(hour_ests) < 10:
+            continue
+        hour_ests, val_ests = np.array(hour_ests), np.array(val_ests)
+        h_lo, h_hi = np.percentile(hour_ests, [2.5, 97.5])
+        v_lo, v_hi = np.percentile(val_ests, [2.5, 97.5])
+        rows.append({'n': n, 'hour_ci_width': h_hi - h_lo, 'value_ci_width': v_hi - v_lo})
+    return pd.DataFrame(rows)
+
+
+def _power_curve_delta(morning_vals, midday_vals, sample_sizes, n_repeats, rng):
+    """For each candidate per-window sample size n (extended to reach the
+    actual n available in the smaller of the two windows), draw independent
+    random subsamples of n morning and n midday observations and recompute
+    Δ(mean) — returns the 95% interval width at each n."""
+    n_morning, n_midday = len(morning_vals), len(midday_vals)
+    n_available = min(n_morning, n_midday)
+    rows = []
+    for n in _extend_to_actual(sample_sizes, n_available):
+        reps = _repeats_for(n, n_repeats)
+        ests = []
+        for _ in range(reps):
+            m = morning_vals[rng.integers(0, n_morning, n)].mean()
+            d = midday_vals[rng.integers(0, n_midday, n)].mean()
+            ests.append(m - d)
+        ests = np.array(ests)
+        lo, hi = np.percentile(ests, [2.5, 97.5])
+        rows.append({'n': n, 'delta_ci_width': hi - lo})
+    return pd.DataFrame(rows)
+
+
+def plot_sample_size_power_curves(
+    df_fluxnet,
+    df_ecoco3,
+    var='WUE',
+    var_units='gC kg$^{-1}$ H$_2$O',
+    morning_hours=(6, 7, 8, 9),
+    midday_hours=(11, 12, 13),
+    sample_sizes=(5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000),
+    n_repeats=200,
+    random_state=42,
+    output_path=None
+):
+    """How many samples are needed to separate signal from noise, pooled
+    across all vegetation types: for the diurnal centroid time (a), centroid
+    magnitude (b), and the morning-minus-midday Δ (c), repeatedly subsample
+    each dataset at increasing sample sizes and track how the 95% interval
+    width of the resulting estimate shrinks. A dashed vertical line marks
+    each dataset's actual available sample size.
+
+    Returns a DataFrame with columns [Statistic, Dataset, n, ci_width].
+    """
+    flux_color = '#4DAC26'
+    rs_color   = '#7B2D8B'
+    rng = np.random.default_rng(random_state)
+
+    curves = {}
+    n_actual = {}
+    for label, df in [('FLUXNET', df_fluxnet), ('ECOCO3', df_ecoco3)]:
+        hours = df['Hour'].values
+        values = df[var].values
+        n_actual[label] = len(df)
+
+        centroid_curve = _power_curve_centroid(hours, values, sample_sizes, n_repeats, rng)
+        curves[('Centroid Time', label)] = centroid_curve[['n', 'hour_ci_width']].rename(
+            columns={'hour_ci_width': 'ci_width'})
+        curves[('Centroid Magnitude', label)] = centroid_curve[['n', 'value_ci_width']].rename(
+            columns={'value_ci_width': 'ci_width'})
+
+        morning_vals = df.loc[df['Hour'].isin(morning_hours), var].dropna().values
+        midday_vals  = df.loc[df['Hour'].isin(midday_hours), var].dropna().values
+        delta_curve = _power_curve_delta(morning_vals, midday_vals, sample_sizes, n_repeats, rng)
+        curves[('Morning-Midday Δ', label)] = delta_curve[['n', 'delta_ci_width']].rename(
+            columns={'delta_ci_width': 'ci_width'})
+
+    fig, axes = plt.subplots(1, 3, figsize=(22, 7))
+    panels = ['Centroid Time', 'Centroid Magnitude', 'Morning-Midday Δ']
+    y_labels = [
+        '95% interval width [hrs]',
+        f'95% interval width [{var_units}]',
+        f'95% interval width [{var_units}]',
+    ]
+    panel_labels = ['(a)', '(b)', '(c)']
+
+    for ax, stat, y_lab, panel in zip(axes, panels, y_labels, panel_labels):
+        for label, color in [('FLUXNET', flux_color), ('ECOCO3', rs_color)]:
+            curve = curves[(stat, label)]
+            ax.plot(curve['n'], curve['ci_width'], marker='o', color=color, label=label)
+            ax.axvline(n_actual[label], color=color, lw=4, linestyle='--', alpha=0.5)
+
+        ax.set_xscale('log')
+        ax.set_xlabel('Sample size (n)', fontsize=21)
+        ax.set_ylabel(y_lab, fontsize=21)
+        ax.set_title(stat, fontsize=23)
+        ax.text(0.02, 0.97, panel, transform=ax.transAxes, fontsize=23,
+                fontweight='bold', va='top', ha='left')
+        ax.grid(alpha=0.3)
+        ax.tick_params(labelsize=17)
+        ax.legend(frameon=False, fontsize=16)
+
+    fig.suptitle('Sample Size Needed to Separate Signal from Noise (pooled across vegetation types)\n'
+                 'Dashed lines mark each dataset\'s actual available sample size', fontsize=21)
+    plt.tight_layout()
+    if output_path is not None:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+    records = []
+    for (stat, label), curve in curves.items():
+        for _, row in curve.iterrows():
+            records.append({'Statistic': stat, 'Dataset': label, 'n': row['n'], 'ci_width': row['ci_width']})
+    return pd.DataFrame(records)
+
+
+def plot_sample_size_adequacy_by_veg(
+    df_fluxnet,
+    df_ecoco3,
+    valid_veg,
+    var='WUE',
+    var_units='gC kg$^{-1}$ H$_2$O',
+    morning_hours=(6, 7, 8, 9),
+    midday_hours=(11, 12, 13),
+    sample_sizes=(5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000),
+    n_repeats=200,
+    random_state=42,
+    output_path=None
+):
+    """Per-vegetation-type companion to plot_sample_size_power_curves: runs
+    the same subsampling power-curve analysis separately for each vegetation
+    type, and summarizes the 95% interval width at each dataset's actual
+    available sample size for that vegetation type — i.e. how much sampling
+    noise remains given the data actually available, per vegetation type,
+    for the diurnal centroid time (a), centroid magnitude (b), and
+    morning-minus-midday Δ (c).
+
+    Returns a DataFrame with columns [Veg, Dataset, Statistic, n_actual, ci_width].
+    """
+    flux_color = '#4DAC26'
+    rs_color   = '#7B2D8B'
+    rng = np.random.default_rng(random_state)
+
+    records = []
+    for veg in valid_veg:
+        for label, df in [('FLUXNET', df_fluxnet), ('ECOCO3', df_ecoco3)]:
+            sub = df[df['Veg'] == veg]
+            if sub.empty:
+                continue
+            hours, values = sub['Hour'].values, sub[var].values
+
+            centroid_curve = _power_curve_centroid(hours, values, sample_sizes, n_repeats, rng)
+            if not centroid_curve.empty:
+                last = centroid_curve.iloc[-1]
+                records.append({'Veg': veg, 'Dataset': label, 'Statistic': 'Centroid Time',
+                                 'n_actual': last['n'], 'ci_width': last['hour_ci_width']})
+                records.append({'Veg': veg, 'Dataset': label, 'Statistic': 'Centroid Magnitude',
+                                 'n_actual': last['n'], 'ci_width': last['value_ci_width']})
+
+            morning_vals = sub.loc[sub['Hour'].isin(morning_hours), var].dropna().values
+            midday_vals  = sub.loc[sub['Hour'].isin(midday_hours), var].dropna().values
+            if len(morning_vals) > 0 and len(midday_vals) > 0:
+                delta_curve = _power_curve_delta(morning_vals, midday_vals, sample_sizes, n_repeats, rng)
+                if not delta_curve.empty:
+                    last = delta_curve.iloc[-1]
+                    records.append({'Veg': veg, 'Dataset': label, 'Statistic': 'Morning-Midday Δ',
+                                     'n_actual': last['n'], 'ci_width': last['delta_ci_width']})
+
+    summary = pd.DataFrame(records)
+    veg_order = [v for v in valid_veg if v in set(summary['Veg'])]
+
+    stats = ['Centroid Time', 'Centroid Magnitude', 'Morning-Midday Δ']
+    y_labels = [
+        '95% interval width at actual n [hrs]',
+        f'95% interval width at actual n [{var_units}]',
+        f'95% interval width at actual n [{var_units}]',
+    ]
+    panel_labels = ['(a)', '(b)', '(c)']
+
+    fig, axes = plt.subplots(1, 3, figsize=(24, 8))
+    for ax, stat, y_lab, panel in zip(axes, stats, y_labels, panel_labels):
+        for x, veg in enumerate(veg_order):
+            flux_row = summary[(summary['Veg'] == veg) & (summary['Dataset'] == 'FLUXNET') & (summary['Statistic'] == stat)]
+            eco_row  = summary[(summary['Veg'] == veg) & (summary['Dataset'] == 'ECOCO3') & (summary['Statistic'] == stat)]
+            if flux_row.empty or eco_row.empty:
+                continue
+            fv = flux_row['ci_width'].values[0]
+            ev = eco_row['ci_width'].values[0]
+
+            ax.plot([x, x], [fv, ev], color='gray', lw=1.5, zorder=1)
+            ax.scatter(x, fv, s=150, marker='X', color=flux_color, edgecolor='black', zorder=3,
+                       label='FLUXNET' if x == 0 else None)
+            ax.scatter(x, ev, s=150, marker='X', color=rs_color, edgecolor='black', zorder=3,
+                       label='ECOCO3' if x == 0 else None)
+
+        ax.set_xticks(range(len(veg_order)))
+        ax.set_xticklabels(veg_order, fontsize=16, rotation=45)
+        ax.set_yscale('log')
+        ax.set_ylabel(y_lab, fontsize=20)
+        ax.set_title(stat, fontsize=23)
+        ax.text(0.02, 0.97, panel, transform=ax.transAxes, fontsize=23,
+                fontweight='bold', va='top', ha='left')
+        ax.grid(alpha=0.3, axis='y')
+        ax.legend(frameon=False, fontsize=16)
+
+    fig.suptitle('Sampling Noise at Actual Available Sample Size, by Vegetation Type', fontsize=23)
+    plt.tight_layout()
+    if output_path is not None:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+    return summary
+
+
+def plot_sample_size_power_curves_by_veg(
+    df_fluxnet,
+    df_ecoco3,
+    valid_veg,
+    var='WUE',
+    var_units='gC kg$^{-1}$ H$_2$O',
+    morning_hours=(6, 7, 8, 9),
+    midday_hours=(11, 12, 13),
+    sample_sizes=(5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000),
+    n_repeats=200,
+    random_state=42,
+    output_path=None
+):
+    """Full sample-size power curves (95% interval width vs. n) like
+    plot_sample_size_power_curves, but with one line per vegetation type
+    (instead of pooling across them) — three rows (centroid time, centroid
+    magnitude, morning-minus-midday Δ) by two columns (FLUXNET, ECOCO3).
+    Each vegetation type's curve is extended to its own actual available
+    sample size, so shorter lines simply reflect less available data.
+
+    Returns a DataFrame with columns [Veg, Dataset, Statistic, n, ci_width].
+    """
+    rng = np.random.default_rng(random_state)
+
+    records = []
+    for veg in valid_veg:
+        for label, df in [('FLUXNET', df_fluxnet), ('ECOCO3', df_ecoco3)]:
+            sub = df[df['Veg'] == veg]
+            if sub.empty:
+                continue
+            hours, values = sub['Hour'].values, sub[var].values
+
+            centroid_curve = _power_curve_centroid(hours, values, sample_sizes, n_repeats, rng)
+            for _, row in centroid_curve.iterrows():
+                records.append({'Veg': veg, 'Dataset': label, 'Statistic': 'Centroid Time',
+                                 'n': row['n'], 'ci_width': row['hour_ci_width']})
+                records.append({'Veg': veg, 'Dataset': label, 'Statistic': 'Centroid Magnitude',
+                                 'n': row['n'], 'ci_width': row['value_ci_width']})
+
+            morning_vals = sub.loc[sub['Hour'].isin(morning_hours), var].dropna().values
+            midday_vals  = sub.loc[sub['Hour'].isin(midday_hours), var].dropna().values
+            if len(morning_vals) > 0 and len(midday_vals) > 0:
+                delta_curve = _power_curve_delta(morning_vals, midday_vals, sample_sizes, n_repeats, rng)
+                for _, row in delta_curve.iterrows():
+                    records.append({'Veg': veg, 'Dataset': label, 'Statistic': 'Morning-Midday Δ',
+                                     'n': row['n'], 'ci_width': row['delta_ci_width']})
+
+    curves = pd.DataFrame(records)
+
+    stats = ['Centroid Time', 'Centroid Magnitude', 'Morning-Midday Δ']
+    y_labels = [
+        '95% interval width [hrs]',
+        f'95% interval width [{var_units}]',
+        f'95% interval width [{var_units}]',
+    ]
+    panel_labels = [['(a)', '(b)'], ['(c)', '(d)'], ['(e)', '(f)']]
+
+    fig, axes = plt.subplots(3, 2, figsize=(16, 18))
+
+    for row, (stat, y_lab, labels) in enumerate(zip(stats, y_labels, panel_labels)):
+        for col, (dataset, panel) in enumerate(zip(['FLUXNET', 'ECOCO3'], labels)):
+            ax = axes[row, col]
+            for veg in valid_veg:
+                curve = curves[(curves['Veg'] == veg) & (curves['Dataset'] == dataset) &
+                               (curves['Statistic'] == stat)]
+                if curve.empty:
+                    continue
+                ax.plot(curve['n'], curve['ci_width'], marker='o', markersize=4,
+                        color=veg_color_palette.get(veg, 'gray'), label=veg)
+
+            ax.set_xscale('log')
+            ax.set_xlabel('Sample size (n)', fontsize=18)
+            ax.set_ylabel(y_lab, fontsize=18)
+            ax.set_title(f'{stat} — {dataset}', fontsize=21)
+            ax.text(0.02, 0.97, panel, transform=ax.transAxes, fontsize=21,
+                    fontweight='bold', va='top', ha='left')
+            ax.grid(alpha=0.3)
+            ax.tick_params(labelsize=14)
+
+    axes[0, 1].legend(title='Vegetation', bbox_to_anchor=(1.02, 1), loc='upper left',
+                       fontsize=13, title_fontsize=14, frameon=False)
+
+    fig.suptitle('Sample Size Power Curves by Vegetation Type', fontsize=23, y=1.01)
+    plt.tight_layout()
+    if output_path is not None:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+    return curves
+
+
 def plot_diurnal_cycles_spei(
     df,
     spei_bins,
     title='Diurnal Cycles by SPEI',
     midday_hours=(10,14),
-    n_boot=1000
+    n_boot=1000,
+    random_state=42,
+    index_name='SPEI',
+    output_dir='figures/diurnal_cycles_drought'
 ):
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
     import pandas as pd
-    
+
     df = df.copy()
     df['Hour'] = df['TIMESTAMP'].dt.hour
     df['Date'] = df['TIMESTAMP'].dt.date
-    
+
     fig, axes = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
-    fig.suptitle(title, fontsize=24)
-    
+    fig.suptitle(title, fontsize=31)
+
     panel_labels = ['(a)', '(b)', '(c)']
     variables = ['GPP', 'ET', 'WUE']
     y_labels = [
@@ -539,10 +1428,11 @@ def plot_diurnal_cycles_spei(
         'ET [W m$^{-2}$]',
         'WUE [gC kg$^{-1}$ H$_2$O]'
     ]
-    
+
     colors = ['#D95F0E', '#2C7FB8']
     results_records = []
-    
+    rng = np.random.default_rng(random_state)
+
     drought_label, drought_condition = spei_bins[0]
     nondrought_label, nondrought_condition = spei_bins[1]
     
@@ -553,12 +1443,14 @@ def plot_diurnal_cycles_spei(
         # -------------------------
         # DIURNAL CURVES + CENTROIDS
         # -------------------------
+        bin_subsets = {}
         for j, (label, condition) in enumerate(spei_bins):
-            
+
             subset = df[condition(df)].copy()
             if subset.empty:
                 continue
-            
+            bin_subsets[label] = subset
+
             stats = get_stats(subset, var)  # <-- your original function
             
             color = colors[j]
@@ -608,7 +1500,7 @@ def plot_diurnal_cycles_spei(
             # Save centroid row
             results_records.append({
                 'Variable': var,
-                'SPEI Bin': label,
+                f'{index_name} Bin': label,
                 'Centroid Hour': centroid,
                 'Centroid Time': centroid_time,
                 'Midday Δ': np.nan,
@@ -616,9 +1508,51 @@ def plot_diurnal_cycles_spei(
                 'CI 2.5%': np.nan,
                 'CI 97.5%': np.nan,
                 'N drought days': np.nan,
-                'N non-drought days': np.nan
+                'N non-drought days': np.nan,
+                'Centroid Shift (hrs)': np.nan,
+                'Shift CI 2.5%': np.nan,
+                'Shift CI 97.5%': np.nan
             })
-        
+
+        # -------------------------
+        # CENTROID SHIFT UNDER DROUGHT (bootstrap CI)
+        # -------------------------
+        drought_subset    = bin_subsets.get(drought_label)
+        nondrought_subset = bin_subsets.get(nondrought_label)
+        if drought_subset is not None and nondrought_subset is not None:
+            n_drought_days    = drought_subset['Date'].nunique()
+            n_nondrought_days = nondrought_subset['Date'].nunique()
+
+            if n_drought_days > 5 and n_nondrought_days > 5:
+                boot_hour_d, _  = _bootstrap_diurnal_centroid(
+                    drought_subset['Hour'].values, drought_subset[var].values, n_boot, rng
+                )
+                boot_hour_nd, _ = _bootstrap_diurnal_centroid(
+                    nondrought_subset['Hour'].values, nondrought_subset[var].values, n_boot, rng
+                )
+                shift_boot = boot_hour_d - boot_hour_nd
+                shift_ci_low, shift_ci_high = np.percentile(shift_boot, [2.5, 97.5])
+
+                drought_centroid    = compute_diurnal_centroid(get_stats(drought_subset, var), 'Hour', f'{var}_avg')
+                nondrought_centroid = compute_diurnal_centroid(get_stats(nondrought_subset, var), 'Hour', f'{var}_avg')
+                observed_shift = drought_centroid - nondrought_centroid
+
+                results_records.append({
+                    'Variable': var,
+                    f'{index_name} Bin': 'Centroid shift (Drought - Non-Drought)',
+                    'Centroid Hour': np.nan,
+                    'Centroid Time': np.nan,
+                    'Midday Δ': np.nan,
+                    '% Change': np.nan,
+                    'CI 2.5%': np.nan,
+                    'CI 97.5%': np.nan,
+                    'N drought days': n_drought_days,
+                    'N non-drought days': n_nondrought_days,
+                    'Centroid Shift (hrs)': observed_shift,
+                    'Shift CI 2.5%': shift_ci_low,
+                    'Shift CI 97.5%': shift_ci_high
+                })
+
         # -------------------------
         # MIDDAY DROUGHT DIFFERENCE
         # -------------------------
@@ -651,13 +1585,13 @@ def plot_diurnal_cycles_spei(
                 f"Midday Δ = {obs_diff:.2f}\n({obs_pct:.1f}%)",
                 transform=ax.transAxes,
                 ha='right',
-                fontsize=11
+                fontsize=14
             )
             
             # Save midday row
             results_records.append({
                 'Variable': var,
-                'SPEI Bin': 'Midday drought - non-drought',
+                f'{index_name} Bin': 'Midday drought - non-drought',
                 'Centroid Hour': np.nan,
                 'Centroid Time': np.nan,
                 'Midday Δ': obs_diff,
@@ -665,28 +1599,33 @@ def plot_diurnal_cycles_spei(
                 'CI 2.5%': ci_low,
                 'CI 97.5%': ci_high,
                 'N drought days': len(daily_d),
-                'N non-drought days': len(daily_nd)
+                'N non-drought days': len(daily_nd),
+                'Centroid Shift (hrs)': np.nan,
+                'Shift CI 2.5%': np.nan,
+                'Shift CI 97.5%': np.nan
             })
-        
+
         ax.text(
             0.02, 0.92,
             panel_labels[i],
             transform=ax.transAxes,
-            fontsize=18,
+            fontsize=23,
             fontweight='bold',
             va='top',
             ha='left'
         )
         
-        ax.set_ylabel(y_labels[i], fontsize=20)
+        ax.set_ylabel(y_labels[i], fontsize=26)
         ax.set_xlim(0, 24)
         ax.grid(True)
-        ax.legend(frameon=False, fontsize=18)
+        ax.legend(frameon=False, fontsize=23)
     
-    axes[-1].set_xlabel('Hour of Day', fontsize=20)
+    axes[-1].set_xlabel('Hour of Day', fontsize=26)
     plt.tight_layout()
     
-    out = f'figures/diurnal_cycles_drought/{title}.png'
+    import os
+    os.makedirs(output_dir, exist_ok=True)
+    out = f'{output_dir}/{title}.png'
     plt.savefig(out, dpi=300)
     plt.close()
     
@@ -810,10 +1749,10 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
         shrink=0.5
     )
 
-    cbar.set_label('Number of Scenes', fontsize=14)
-    cbar.ax.tick_params(labelsize=12)
+    cbar.set_label('Number of Scenes', fontsize=18)
+    cbar.ax.tick_params(labelsize=16)
 
-    ax_map.set_title('Number of Scenes per Location', fontsize=18)
+    ax_map.set_title('Number of Scenes per Location', fontsize=23)
 
     # ======================================================
     # BAR — VEGETATION (WITH CLIMATE BREADTH)
@@ -826,8 +1765,8 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
         color=veg_colors
     )
 
-    ax_veg.set_title('Scenes per Vegetation', fontsize=14)
-    ax_veg.set_xlabel('Scene Count', fontsize=12)
+    ax_veg.set_title('Scenes per Vegetation', fontsize=18)
+    ax_veg.set_xlabel('Scene Count', fontsize=16)
 
     # for i, (count, kg_n) in enumerate(zip(veg_summary['Scene_Count'], veg_summary['Num_Climate_Classes'])):
     #     ax_veg.text(
@@ -835,7 +1774,7 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
     #         i,
     #         f'{kg_n} kgs',
     #         va='center',
-    #         fontsize=12
+    #         fontsize=16
     #     )
 
     # ======================================================
@@ -849,8 +1788,8 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
         color=kop_colors
     )
 
-    ax_kop.set_title('Scenes per KG Climate Class', fontsize=14 )
-    ax_kop.set_xlabel('Scene Count', fontsize=12)
+    ax_kop.set_title('Scenes per KG Climate Class', fontsize=18 )
+    ax_kop.set_xlabel('Scene Count', fontsize=16)
 
     # for i, (count, veg_n) in enumerate(zip(kop_summary['Scene_Count'], kop_summary['Num_Veg_Classes'])):
     #     ax_kop.text(
@@ -858,7 +1797,7 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
     #         i,
     #         f'{veg_n} veg',
     #         va='center',
-    #         fontsize=12
+    #         fontsize=16
     #     )
 
     # ======================================================
@@ -868,25 +1807,27 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
     ax_tod.invert_yaxis()  # Optional: invert y-axis to have morning at top
     ax_tod.set_yticks(tod_bar.index)
     ax_tod.set_yticklabels([f'{hour}:00' for hour in tod_bar.index])
-    ax_tod.set_title('Scenes per Time of Day', fontsize=14)
-    ax_tod.set_xlabel('Scene Count', fontsize=12)
+    ax_tod.set_title('Scenes per Time of Day', fontsize=18)
+    ax_tod.set_xlabel('Scene Count', fontsize=16)
 
     # ======================================================
     # BAR — SEASON
     # ======================================================
     ax_season.barh(season_bar.index, season_bar.values, color='darkorange')
     ax_season.invert_yaxis()  # Optional: invert y-axis to have winter at top
-    ax_season.set_title('Scenes per Season', fontsize=14)
-    ax_season.set_xlabel('Scene Count', fontsize=12)
+    ax_season.set_title('Scenes per Season', fontsize=18)
+    ax_season.set_xlabel('Scene Count', fontsize=16)
 
     # ======================================================
     # PANEL LABELS
     # ======================================================
+    # Placed above and to the left of each axes (not inside, top-left) so
+    # they never sit on top of that panel's own title or data.
     label_kwargs = dict(
-        x=0.00, y=1.08,
-        fontsize=14,
+        x=-0.06, y=1.02,
+        fontsize=18,
         fontweight='bold',
-        va='top',
+        va='bottom',
         ha='left'
     )
 
@@ -898,7 +1839,7 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
     # ======================================================
     # FINALIZE
     # ======================================================
-    plt.suptitle('ECOCO3 Version 1 Coverage Summary', fontsize=20)
+    plt.suptitle('ECOCO3 Version 2 Coverage Summary', fontsize=26)
     plt.tight_layout()
 
     if output_path:
@@ -906,6 +1847,66 @@ def plot_data_coverage_map(df,valid_veg=None, valid_kg=None,output_path=None):
     else:
         plt.savefig('figures/data_coverage_map.png', dpi=300)
     plt.show()
+
+
+def plot_violin_split(df_fluxnet, df_ecoco3, grouping_category, ax, title, valid_categories=None, show_legend=True):
+    """One panel: FLUXNET and ECOCO3 as a split violin per category (left
+    half FLUXNET, right half ECOCO3), with a star above any category where
+    the two distributions differ (Mann-Whitney U, p < 0.05) — the direct
+    FLUXNET-vs-ECOCO3 comparison, as opposed to plot_violin's ANOVA/Tukey
+    letters, which instead compare categories against each other within a
+    single dataset.
+    """
+    df_fluxnet = df_fluxnet.copy()
+    df_ecoco3 = df_ecoco3.copy()
+    if valid_categories is not None:
+        df_fluxnet = df_fluxnet[df_fluxnet[grouping_category].isin(valid_categories)]
+        df_ecoco3 = df_ecoco3[df_ecoco3[grouping_category].isin(valid_categories)]
+
+    df_fluxnet = df_fluxnet.assign(Dataset='FLUXNET')
+    df_ecoco3 = df_ecoco3.assign(Dataset='ECOCO3')
+    combined = pd.concat([df_fluxnet, df_ecoco3], ignore_index=True)
+
+    order = (
+        combined.groupby(grouping_category)['WUE']
+        .median()
+        .sort_values(ascending=False)
+        .index
+        .tolist()
+    )
+
+    # Lightened versions of the FLUXNET/ECOCO3 color pair used elsewhere in
+    # this module (e.g. plot_morning_midday_violin) -- full saturation made
+    # the black quartile lines hard to see against the fill.
+    flux_color = '#9DD187'
+    rs_color   = '#B68BBF'
+    sns.violinplot(x=grouping_category, y='WUE', hue='Dataset', data=combined,
+                    hue_order=['FLUXNET', 'ECOCO3'], palette={'FLUXNET': flux_color, 'ECOCO3': rs_color},
+                    split=True, inner='quartile', inner_kws=dict(linewidth=2.2),
+                    order=order, cut=0, ax=ax)
+
+    for i, category in enumerate(order):
+        flux_vals = df_fluxnet.loc[df_fluxnet[grouping_category] == category, 'WUE'].dropna()
+        eco_vals = df_ecoco3.loc[df_ecoco3[grouping_category] == category, 'WUE'].dropna()
+        if len(flux_vals) < 1 or len(eco_vals) < 1:
+            continue
+        _, p = mannwhitneyu(flux_vals, eco_vals, alternative='two-sided')
+        if p < 0.05:
+            ax.text(i, 5.3, '*', ha='center', va='center', fontsize=40, fontweight='bold',
+                    color='black', path_effects=[pe.withStroke(linewidth=2, foreground='white')])
+
+    ax.set_title(title, fontsize=32, pad=16)
+    ax.set_xlabel(grouping_category, fontsize=28)
+    ax.set_ylabel('WUE \n [gC kg$^{-1}$H$_2$O]', fontsize=28)
+    ax.set_ylim(0, 6)
+    ax.tick_params(axis='x', rotation=45, labelsize=27)
+    ax.tick_params(axis='y', labelsize=27)
+    # Back inside the axes, upper right, but low enough to clear the star
+    # row (~y=5-5.7) above it. Only one legend needed across both panels.
+    if show_legend:
+        ax.legend(fontsize=24, loc='upper right', bbox_to_anchor=(0.99, 0.80), framealpha=0.9)
+    else:
+        ax.legend_.remove()
 
 
 def plot_violin_comparison_stacked(
@@ -940,14 +1941,14 @@ def plot_violin_comparison_stacked(
         df_wue_daily=df_fluxnet[df_fluxnet[second_grouping_category].isin(valid_kg) if valid_kg is not None else df_fluxnet[second_grouping_category]],
         grouping_category=second_grouping_category,
         ax=axes[2],
-        title='FLUXNET by Köppen-Geiger Climate'
+        title='FLUXNET by Climate'
     )
 
     plot_violin(
         df_wue_daily=df_ecoco3[df_ecoco3[second_grouping_category].isin(valid_kg) if valid_kg is not None else df_ecoco3[second_grouping_category]],
         grouping_category=second_grouping_category,
         ax=axes[3],
-        title='ECOCO3 by Köppen-Geiger Climate'
+        title='ECOCO3 by Climate'
     )
 
 
@@ -959,22 +1960,82 @@ def plot_violin_comparison_stacked(
     axes[1].set_xlabel('')  # remove duplicate x label
     axes[3].set_xlabel('')  # remove duplicate x label
 
-    # Panel labels
+    # Panel labels — placed above the axes (not inside, top-left) so they
+    # can't overlap the violins or the significance annotations beneath them.
+    # y=1.22 clears both the title (pad=30) and the CLD letters row
+    # (y=1.03, axes-fraction) that plot_violin now draws above its own axes.
     panel_labels = ['(a)', '(b)', '(c)', '(d)']
     for i, ax in enumerate(axes):
         ax.text(
-            0.02, 0.95, panel_labels[i],
+            0.0, 1.22, panel_labels[i],
             transform=ax.transAxes,
-            fontsize=16,
+            fontsize=21,
             fontweight='bold',
-            va='top',
+            va='bottom',
             ha='left'
         )
 
     plt.tight_layout()
 
     if output_path is not None:
-        plt.savefig(output_path, dpi=300)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+
+    plt.show()
+
+
+def plot_violin_comparison_split(
+    df_ecoco3,
+    df_fluxnet,
+    grouping_category='Veg',
+    second_grouping_category='kg_label',
+    valid_veg=None,
+    valid_kg=None,
+    output_path=None
+):
+    """FLUXNET vs ECOCO3 WUE distributions, one split-violin panel per
+    grouping (vegetation, climate) — see plot_violin_split. The star above
+    a category marks p < 0.05 on a Mann-Whitney U test between FLUXNET and
+    ECOCO3 for that category specifically. Companion to (not a replacement
+    for) plot_violin_comparison_stacked's 4-panel Figure 3.
+    """
+    fig, axes = plt.subplots(2, 1, figsize=(18, 12))
+
+    plot_violin_split(
+        df_fluxnet=df_fluxnet, df_ecoco3=df_ecoco3,
+        grouping_category=grouping_category, ax=axes[0],
+        title='By Vegetation', valid_categories=valid_veg
+    )
+
+    plot_violin_split(
+        df_fluxnet=df_fluxnet, df_ecoco3=df_ecoco3,
+        grouping_category=second_grouping_category, ax=axes[1],
+        title='By Climate', valid_categories=valid_kg,
+        show_legend=False
+    )
+
+    axes[0].set_xlabel('')  # remove duplicate x label
+    axes[1].set_xlabel('')  # 'kg_label' is a column name, not a reader-facing label
+
+    # Panel labels — placed above the axes (not inside, top-left) since a
+    # star can appear over the first category there for either panel. Pulled
+    # further left/up than a bare (0, 1.02) so they clear the y-axis's own
+    # top tick label ("6") instead of sitting right on top of it.
+    panel_labels = ['(a)', '(b)']
+    for i, ax in enumerate(axes):
+        ax.text(
+            -0.06, 1.04, panel_labels[i],
+            transform=ax.transAxes,
+            fontsize=30,
+            fontweight='bold',
+            va='bottom',
+            ha='left'
+        )
+
+    plt.tight_layout(h_pad=6)
+
+    if output_path is not None:
+        # bbox_inches='tight' so the externally-anchored legends aren't clipped
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
 
     plt.show()
 
@@ -985,7 +2046,8 @@ def plot_diurnal_cycles_spei_comparison(
     title='Diurnal Cycles by SPEI',
     midday_hours=(10,14),
     n_boot=1000,
-    output_path=None
+    output_path=None,
+    index_name='SPEI'
 ):
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -997,16 +2059,16 @@ def plot_diurnal_cycles_spei_comparison(
 
     variables = ['GPP', 'ET', 'WUE']
     y_labels = [
-        'GPP [µmol CO$_2$ m$^{-2}$ s$^{-1}$]',
-        'ET [W m$^{-2}$]',
-        'WUE [gC kg$^{-1}$ H$_2$O]'
+        'GPP \n[µmol CO$_2$ m$^{-2}$ s$^{-1}$]',
+        'ET \n[W m$^{-2}$]',
+        'WUE \n[gC kg$^{-1}$ H$_2$O]'
     ]
 
     colors = ['#D95F0E', '#2C7FB8']
     panel_labels = ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)']
 
     fig, axes = plt.subplots(3, 2, figsize=(16, 12), sharex=True, sharey='row')
-    fig.suptitle(title + ' (FLUXNET vs ECOCO3)', fontsize=24)
+    fig.suptitle(title + ' (FLUXNET vs ECOCO3)', fontsize=31)
 
     results_records = []
     label_idx = 0
@@ -1070,7 +2132,7 @@ def plot_diurnal_cycles_spei_comparison(
                 results_records.append({
                     'Dataset': dataset_name,
                     'Variable': var,
-                    'SPEI Bin': label,
+                    f'{index_name} Bin': label,
                     'Centroid Hour': centroid,
                     'Centroid Time': hour_to_timestamp(centroid),
                     'Midday Δ': np.nan,
@@ -1111,13 +2173,13 @@ def plot_diurnal_cycles_spei_comparison(
                     f"Midday Δ = {obs_diff:.2f}\n({obs_pct:.1f}%)",
                     transform=ax.transAxes,
                     ha='right',
-                    fontsize=16
+                    fontsize=21
                 )
 
                 results_records.append({
                     'Dataset': dataset_name,
                     'Variable': var,
-                    'SPEI Bin': 'Midday drought - non-drought',
+                    f'{index_name} Bin': 'Midday drought - non-drought',
                     'Centroid Hour': np.nan,
                     'Centroid Time': np.nan,
                     'Midday Δ': obs_diff,
@@ -1135,25 +2197,25 @@ def plot_diurnal_cycles_spei_comparison(
                 0.02, 0.92,
                 panel_labels[label_idx],
                 transform=ax.transAxes,
-                fontsize=18,
+                fontsize=23,
                 fontweight='bold',
                 va='top'
             )
             label_idx += 1
 
             if i == 0:
-                ax.set_title(dataset_name, fontsize=18)
+                ax.set_title(dataset_name, fontsize=23)
 
             if j == 0:
-                ax.set_ylabel(y_labels[i], fontsize=18)
+                ax.set_ylabel(y_labels[i], fontsize=23)
 
             ax.set_xlim(0, 24)
             ax.grid(True)
-            ax.legend(frameon=False, fontsize=18, loc='upper right')
-            ax.tick_params(axis='both', labelsize=16)
+            ax.legend(frameon=False, fontsize=23, loc='upper right')
+            ax.tick_params(axis='both', labelsize=21)
 
     for ax in axes[-1, :]:
-        ax.set_xlabel('Hour of Day', fontsize=18)
+        ax.set_xlabel('Hour of Day', fontsize=23)
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
@@ -1161,7 +2223,7 @@ def plot_diurnal_cycles_spei_comparison(
 
     return pd.DataFrame(results_records)
 
-def plot_data_coverage_map_sites(df, valid_veg=None, valid_kg=None):
+def plot_data_coverage_map_sites(df, valid_veg=None, valid_kg=None, output_path=None):
 
     # ======================================================
     # CLEAN YEARS
@@ -1273,18 +2335,16 @@ def plot_data_coverage_map_sites(df, valid_veg=None, valid_kg=None):
         shrink=0.5
     )
     
-    cbar.set_label('Number of Years per Site', fontsize=14)
-    cbar.ax.tick_params(labelsize=12)
-
-    ax_map.set_title('Spatial Coverage of ECOCO3 / Flux Sites', fontsize=18)
+    cbar.set_label('Number of Years per Site', fontsize=18)
+    cbar.ax.tick_params(labelsize=16)
 
     # ======================================================
     # VEGETATION BAR
     # ======================================================
     veg_colors = [veg_color_palette.get(v, 'gray') for v in veg_summary['Veg']]
     ax_veg.barh(veg_summary['Veg'], veg_summary['Site Years'], color=veg_colors)
-    ax_veg.set_title('Site Years per Vegetation Type', fontsize=14)
-    ax_veg.set_xlabel('Site Years', fontsize=12)
+    ax_veg.set_title('Site Years per Vegetation Type', fontsize=18)
+    ax_veg.set_xlabel('Site Years', fontsize=16)
 
     # ======================================================
     # KÖPPEN BAR
@@ -1292,14 +2352,33 @@ def plot_data_coverage_map_sites(df, valid_veg=None, valid_kg=None):
     kop_colors = [koppen_label_color_palette.get(k, 'gray') for k in kop_summary['kg_label']]
 
     ax_kop.barh(kop_summary['kg_label'], kop_summary['Site Years'], color=kop_colors)
-    ax_kop.set_title('Site Years per Köppen Climate Class', fontsize=14)
-    ax_kop.set_xlabel('Site Years', fontsize=12)
+    ax_kop.set_title('Site Years per KG Climate Class', fontsize=18)
+    ax_kop.set_xlabel('Site Years', fontsize=16)
+
+    # ======================================================
+    # PANEL LABELS
+    # ======================================================
+    # Placed above and to the left of each axes (not inside, top-left) so
+    # they never sit on top of that panel's own title or data.
+    label_kwargs = dict(
+        x=-0.14, y=1.02,
+        fontsize=18,
+        fontweight='bold',
+        va='bottom',
+        ha='left'
+    )
+
+    ax_map.text(s='(a)', transform=ax_map.transAxes, **label_kwargs)
+    ax_veg.text(s='(b)', transform=ax_veg.transAxes, **label_kwargs)
+    ax_kop.text(s='(c)', transform=ax_kop.transAxes, **label_kwargs)
 
     # ======================================================
     # FINALIZE
     # ======================================================
-    plt.suptitle('FLUXNET Site Coverage Summary', fontsize=20)
+    plt.suptitle('FLUXNET Site Coverage Summary', fontsize=26)
     plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.show()
 
 
@@ -1318,25 +2397,13 @@ def _load_supp(path):
                   'nnd_ECOCO',   'nnd_FLUX']
     return df
 
-def _parse_h(t):
-    if pd.isna(t):
-        return np.nan
-    h, m = map(int, str(t).strip().split(':'))
-    return h + m / 60.0
-
-def _compute_shifts(df, group_col):
-    rows = []
-    for (var, grp), g in df.groupby(['Variable', group_col]):
-        d  = g[g['SPEI Bin'] == 'Drought']
-        nd = g[g['SPEI Bin'] == 'Non-Drought']
-        if d.empty or nd.empty:
-            continue
-        rows.append({
-            'Variable': var, 'Group': grp,
-            'shift_ECOCO': _parse_h(d['ECOCO'].values[0])   - _parse_h(nd['ECOCO'].values[0]),
-            'shift_FLUX':  _parse_h(d['FLUXNET'].values[0]) - _parse_h(nd['FLUXNET'].values[0]),
-        })
-    return pd.DataFrame(rows)
+def _load_shift(path):
+    df = pd.read_csv(path, header=[0, 1])
+    df.columns = ['Variable', 'Group',
+                  'shift_ECOCO',  'shift_FLUX',
+                  'ci25_ECOCO',   'ci25_FLUX',
+                  'ci975_ECOCO',  'ci975_FLUX']
+    return df
 
 _ECO_COLOR   = '#4DAC26'
 _FLUX_COLOR  = '#7B2D8B'
@@ -1347,18 +2414,18 @@ _CAP_SIZE    = 6
 _LINE_WIDTH  = 3.0
 _ELINE_WIDTH = 2.8
 _VLINE_WIDTH = 2.8
-_STAR_SIZE   = 44
+_STAR_SIZE   = 57
 
 def _sig_star(lo, hi):
     return '*' if (lo > 0 or hi < 0) else ''
 
 _RCPARAMS = {
-    'font.size':         44,
-    'axes.titlesize':    50,
-    'axes.labelsize':    44,
-    'xtick.labelsize':   40,
-    'ytick.labelsize':   40,
-    'legend.fontsize':   42,
+    'font.size':         57,
+    'axes.titlesize':    65,
+    'axes.labelsize':    57,
+    'xtick.labelsize':   52,
+    'ytick.labelsize':   52,
+    'legend.fontsize':   55,
     'axes.linewidth':    2.5,
     'xtick.major.width': 2.2,
     'ytick.major.width': 2.2,
@@ -1373,7 +2440,10 @@ _RCPARAMS = {
 def plot_drought_suppression_summary(
     sup_veg_path='tables/suppression_summary_midday.csv',
     sup_kg_path='tables/suppression_summary_midday_kg.csv',
-    output_path='figures/WUE_analysis/drought_suppression_summary.png'
+    output_path='figures/WUE_analysis/drought_suppression_summary.png',
+    index_name='SPEI',
+    drought_threshold=-1.5,
+    nondrought_threshold=0
 ):
     import os
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -1386,9 +2456,16 @@ def plot_drought_suppression_summary(
         ('By Climate Class',   sup_kg),
     ]
 
+    # Size each row's height to how many categories it actually has to fit,
+    # instead of a fixed ratio — otherwise a row with more groups than the
+    # other (e.g. more climate classes than vegetation types) gets squeezed
+    # into too little vertical space and its y-tick labels overlap.
+    row_n = [max(df.groupby('Variable').size().max() if len(df) else 1, 1)
+             for _, df in GROUPINGS]
+
     with plt.rc_context(_RCPARAMS):
-        fig = plt.figure(figsize=(30, 24))
-        gs  = fig.add_gridspec(2, 3, hspace=0.5, wspace=0.75, height_ratios=[10, 3])
+        fig = plt.figure(figsize=(30, 30))
+        gs  = fig.add_gridspec(2, 3, hspace=0.6, wspace=0.75, height_ratios=row_n)
         panel_labels = list('abcdef')
         label_idx = 0
 
@@ -1397,6 +2474,11 @@ def plot_drought_suppression_summary(
                 ax  = fig.add_subplot(gs[row, col])
                 sub = df[df['Variable'] == var].copy().sort_values('delta_FLUX', ascending=True)
                 n   = len(sub)
+                if n == 0:
+                    ax.set_visible(False)
+                    label_idx += 1
+                    continue
+
                 y_flux = np.arange(n) * 1.8
                 y_eco  = y_flux + 0.7
 
@@ -1426,28 +2508,31 @@ def plot_drought_suppression_summary(
                 ax.axvline(0, color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
                 ax.set_yticks(y_flux + 0.35)
                 ax.set_yticklabels(sub['Group'].tolist())
-                ax.set_xlabel(f'Midday Δ [{_UNITS[var]}]')
+                ax.set_xlabel(f'Midday Δ \n [{_UNITS[var]}]')
                 ax.set_title(var)
                 ax.grid(axis='x', alpha=0.3, lw=1.5)
                 ax.spines[['top', 'right']].set_visible(False)
                 ax.tick_params(axis='both', width=2.2, length=6)
+                ax.tick_params(axis='y', labelsize=max(14, min(32, 380 / n)))
                 ax.text(-0.15, 1.03, f'({panel_labels[label_idx]})',
-                        transform=ax.transAxes, fontsize=54, fontweight='bold')
+                        transform=ax.transAxes, fontsize=70, fontweight='bold')
                 label_idx += 1
                 if col == 0:
                     ax.text(-0.50, 0.5, row_title, transform=ax.transAxes,
-                            fontsize=40, rotation=90, va='center', ha='center')
+                            fontsize=52, rotation=90, va='center', ha='center')
+
+        fig.subplots_adjust(top=0.83, bottom=0.1)
 
         eco_p  = mpatches.Patch(color=_ECO_COLOR,  label='ECOCO3')
         flux_p = mpatches.Patch(color=_FLUX_COLOR, label='FLUXNET')
         sig_p  = plt.Line2D([], [], color='gray', marker='$*$', linestyle='None',
-                            markersize=22, label='* CI excludes 0')
+                            markersize=14, label='* CI excludes 0')
         fig.legend(handles=[eco_p, flux_p, sig_p], loc='upper right',
-                   frameon=False, bbox_to_anchor=(1.05, 1.05))
+                   frameon=False, bbox_to_anchor=(0.99, 0.92), fontsize=28)
         fig.suptitle(
             'Midday Drought Suppression (95 % Bootstrap CI)\n'
-            'Drought: SPEI < −1.5  |  Non-Drought: SPEI > 0',
-            fontsize=44, y=1.02)
+            f'Drought: {index_name} < {drought_threshold}  |  Non-Drought: {index_name} > {nondrought_threshold}',
+            fontsize=57, y=0.995)
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.show()
 
@@ -1457,26 +2542,33 @@ def plot_drought_suppression_summary(
 # ──────────────────────────────────────────────────────────────────────────────
 
 def plot_centroid_shift_summary(
-    cent_veg_path='tables/centroid_summary.csv',
-    cent_kg_path='tables/centroid_summary_kg.csv',
+    shift_veg_path='tables/centroid_shift_summary.csv',
+    shift_kg_path='tables/centroid_shift_summary_kg.csv',
     output_path='figures/WUE_analysis/centroid_shift_summary.png'
 ):
+    """Bootstrap 95% CI on each dataset's own drought-vs-non-drought centroid
+    timing shift; '*' marks bars whose CI excludes zero."""
     import os
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    cent_veg = pd.read_csv(cent_veg_path)
-    cent_kg  = pd.read_csv(cent_kg_path)
-    shift_veg = _compute_shifts(cent_veg, 'veg')
-    shift_kg  = _compute_shifts(cent_kg,  'kg_label')
+    shift_veg = _load_shift(shift_veg_path)
+    shift_kg  = _load_shift(shift_kg_path)
 
     SHIFT_GROUPINGS = [
         ('By Vegetation Type', shift_veg),
         ('By Climate Class',   shift_kg),
     ]
 
+    # Size each row's height to how many categories it actually has to fit,
+    # instead of a fixed ratio — otherwise a row with more groups than the
+    # other (e.g. more climate classes than vegetation types) gets squeezed
+    # into too little vertical space and its y-tick labels overlap.
+    row_n = [max(df.groupby('Variable').size().max() if len(df) else 1, 1)
+             for _, df in SHIFT_GROUPINGS]
+
     with plt.rc_context(_RCPARAMS):
-        fig = plt.figure(figsize=(30, 24))
-        gs  = fig.add_gridspec(2, 3, hspace=0.5, wspace=0.75, height_ratios=[10, 3])
+        fig = plt.figure(figsize=(30, 30))
+        gs  = fig.add_gridspec(2, 3, hspace=0.6, wspace=0.75, height_ratios=row_n)
         panel_labels = list('abcdef')
         label_idx = 0
 
@@ -1493,31 +2585,260 @@ def plot_centroid_shift_summary(
                 y_flux = np.arange(n) * 1.8
                 y_eco  = y_flux + 0.7
 
-                ax.barh(y_flux, sub['shift_FLUX'],  height=0.6, color=_FLUX_COLOR, alpha=0.85)
-                ax.barh(y_eco,  sub['shift_ECOCO'], height=0.6, color=_ECO_COLOR,  alpha=0.85)
+                for i, (_, r) in enumerate(sub.iterrows()):
+                    xerr_f = [[max(r.shift_FLUX - r.ci25_FLUX, 0)],
+                              [max(r.ci975_FLUX - r.shift_FLUX, 0)]]
+                    ax.errorbar(r.shift_FLUX, y_flux[i], xerr=xerr_f,
+                                fmt='s', color=_FLUX_COLOR, markersize=_MARKER_SIZE,
+                                capsize=_CAP_SIZE, lw=_LINE_WIDTH,
+                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                    s = _sig_star(r.ci25_FLUX, r.ci975_FLUX)
+                    if s:
+                        ax.text(r.shift_FLUX, y_flux[i] + 0.22, s,
+                                ha='center', fontsize=_STAR_SIZE, color=_FLUX_COLOR, zorder=4)
+
+                    xerr_e = [[max(r.shift_ECOCO - r.ci25_ECOCO, 0)],
+                              [max(r.ci975_ECOCO - r.shift_ECOCO, 0)]]
+                    ax.errorbar(r.shift_ECOCO, y_eco[i], xerr=xerr_e,
+                                fmt='o', color=_ECO_COLOR, markersize=_MARKER_SIZE,
+                                capsize=_CAP_SIZE, lw=_LINE_WIDTH,
+                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                    s = _sig_star(r.ci25_ECOCO, r.ci975_ECOCO)
+                    if s:
+                        ax.text(r.shift_ECOCO, y_eco[i] + 0.22, s,
+                                ha='center', fontsize=_STAR_SIZE, color=_ECO_COLOR, zorder=4)
 
                 ax.axvline(0, color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
                 ax.set_yticks(y_flux + 0.35)
                 ax.set_yticklabels(sub['Group'].tolist())
-                ax.set_xlabel('Centroid shift [hrs]\n(Drought − Non-Drought)')
+                ax.set_xlabel('Centroid shift \n [hrs]')
                 ax.set_title(var)
                 ax.grid(axis='x', alpha=0.3, lw=1.5)
                 ax.spines[['top', 'right']].set_visible(False)
                 ax.tick_params(axis='both', width=2.2, length=6)
+                ax.tick_params(axis='y', labelsize=max(14, min(32, 380 / n)))
                 ax.text(-0.15, 1.03, f'({panel_labels[label_idx]})',
-                        transform=ax.transAxes, fontsize=54, fontweight='bold')
+                        transform=ax.transAxes, fontsize=70, fontweight='bold')
                 label_idx += 1
                 if col == 0:
                     ax.text(-0.50, 0.5, row_title, transform=ax.transAxes,
-                            fontsize=40, rotation=90, va='center', ha='center')
+                            fontsize=52, rotation=90, va='center', ha='center')
 
-        eco_p  = mpatches.Patch(color=_ECO_COLOR,  alpha=0.85, label='ECOCO3')
-        flux_p = mpatches.Patch(color=_FLUX_COLOR, alpha=0.85, label='FLUXNET')
-        fig.legend(handles=[eco_p, flux_p], loc='upper right',
-                   frameon=False, bbox_to_anchor=(1, 1))
+        fig.text(0.5, 0.025, '(Drought − Non-Drought)', ha='center', fontsize=40)
+
+        fig.subplots_adjust(top=0.83, bottom=0.15)
+
+        eco_p  = mpatches.Patch(color=_ECO_COLOR,  label='ECOCO3')
+        flux_p = mpatches.Patch(color=_FLUX_COLOR, label='FLUXNET')
+        sig_p  = plt.Line2D([], [], color='gray', marker='$*$', linestyle='None',
+                            markersize=14, label='* CI excludes 0')
+        fig.legend(handles=[eco_p, flux_p, sig_p], loc='upper right',
+                   frameon=False, bbox_to_anchor=(0.99, 0.92), fontsize=28)
         fig.suptitle(
-            'Diurnal Centroid Timing Shift Under Drought\n'
+            'Diurnal Centroid Timing Shift Under Drought (95% Bootstrap CI)\n'
             'Positive = later peak under drought  |  Negative = earlier peak',
-            fontsize=44, y=1.02)
+            fontsize=57, y=0.995)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.show()
+
+
+def plot_centroid_shift_summary_by_site(
+    shift_path='tables/centroid_shift_summary_by_site_V2.csv',
+    output_path='figures/C2_validation/centroid_shift_summary_by_site.png',
+    significant_only=True
+):
+    """Per-FLUXNET-site centroid timing shift under drought (bootstrap 95%
+    CI), for sites with sufficient drought/non-drought days (see
+    af.sufficient_drought_days, group_col='Site'). Single-dataset version
+    of plot_centroid_shift_summary -- one marker per site instead of an
+    ECOCO3/FLUXNET dumbbell, since there's only one dataset here.
+
+    significant_only: restrict to sites whose 95% CI excludes zero. With
+    the raw >5-day sufficiency gate alone, this can be hundreds of sites --
+    too many for one readable forest plot -- so this narrows it down to
+    sites with a detectable drought-timing shift, which is also the more
+    interesting subset scientifically.
+    """
+    df = pd.read_csv(shift_path)
+
+    subs = {}
+    for var in _VARIABLES:
+        sub = df[df['Variable'] == var].copy()
+        if significant_only:
+            sub = sub[(sub['Shift CI 2.5%'] > 0) | (sub['Shift CI 97.5%'] < 0)]
+        subs[var] = sub.sort_values('Centroid Shift (hrs)', ascending=True)
+    max_n = max((len(s) for s in subs.values()), default=1)
+
+    fig_height = max(10, 0.55 * max_n)
+    # Fixed-inches top margin for the 2-line suptitle, converted to a
+    # fraction of fig_height -- a fixed fraction (e.g. 0.9) leaves a huge
+    # absolute gap once fig_height grows into the tens of inches for a
+    # long site list.
+    top_frac = 1 - min(0.35, 2.4 / fig_height)
+
+    with plt.rc_context(_RCPARAMS):
+        fig, axes = plt.subplots(1, 3, figsize=(30, fig_height))
+
+        for col, var in enumerate(_VARIABLES):
+            ax = axes[col]
+            sub = subs[var]
+            n = len(sub)
+            if n == 0:
+                ax.set_visible(False)
+                continue
+
+            y = np.arange(n)
+            for i, (_, r) in enumerate(sub.iterrows()):
+                xerr = [[max(r['Centroid Shift (hrs)'] - r['Shift CI 2.5%'], 0)],
+                        [max(r['Shift CI 97.5%'] - r['Centroid Shift (hrs)'], 0)]]
+                ax.errorbar(r['Centroid Shift (hrs)'], y[i], xerr=xerr, fmt='o',
+                            color=_FLUX_COLOR, markersize=_MARKER_SIZE, capsize=_CAP_SIZE,
+                            lw=_LINE_WIDTH, elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+
+            ax.axvline(0, color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
+            ax.set_yticks(y)
+            ax.set_yticklabels(sub['Site'].tolist())
+            ax.set_xlabel('Shift [hrs]')
+            ax.set_title(f'{var} (n={n})')
+            ax.grid(axis='x', alpha=0.3, lw=1.5)
+            ax.spines[['top', 'right']].set_visible(False)
+            ax.tick_params(axis='both', width=2.2, length=6)
+            ax.tick_params(axis='y', labelsize=max(14, min(32, 380 / max(n, 1))))
+            ax.text(-0.15, 1.03, f'({chr(97 + col)})', transform=ax.transAxes,
+                    fontsize=70, fontweight='bold')
+
+        subtitle = ('Sites with a significant drought-timing shift (95% CI excludes 0)'
+                    if significant_only else 'All sites with sufficient drought/non-drought days')
+        fig.suptitle(
+            f'FLUXNET Centroid Timing Shift Under Drought, By Site (95% Bootstrap CI)\n'
+            f'{subtitle}  |  Positive = later peak under drought, negative = earlier',
+            fontsize=44, y=top_frac + min(0.35, 2.4 / fig_height) * 0.75)
+        plt.tight_layout(rect=[0, 0, 1, top_frac])
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.show()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Figure: seasonal-cycle peak-timing / amplitude offset forest plots
+# (see hemisphere_adjust_doy, plot_seasonal_cycles_by_site — same underlying
+# cluster-bootstrap CIs, one point per group instead of two, since the offset
+# metric here (ECOCO3 minus FLUXNET) is already a cross-dataset comparison).
+# ──────────────────────────────────────────────────────────────────────────────
+
+_SEASONAL_METRIC_INFO = {
+    'offset': dict(
+        mean_col='offset_mean', lo_col='offset_ci_low', hi_col='offset_ci_high',
+        ref=0, xlabel='ECOCO3 − FLUXNET [days]',
+        suptitle='Seasonal Peak-Timing Offset (95% Bootstrap CI)\n'
+                  'Negative = ECOCO3 peaks earlier  |  Positive = ECOCO3 peaks later',
+    ),
+    'pct_amp_diff': dict(
+        mean_col='pct_amp_diff_mean', lo_col='pct_amp_diff_ci_low', hi_col='pct_amp_diff_ci_high',
+        ref=0, xlabel='ECOCO3 vs FLUXNET [%]',
+        suptitle='Seasonal Amplitude Difference (95% Bootstrap CI)\n'
+                  'Negative = ECOCO3 amplitude smaller  |  Positive = ECOCO3 amplitude larger',
+    ),
+}
+_SEASONAL_POINT_COLOR = '#2C7FB8'
+_SEASONAL_AGG_COLOR   = '#D95F0E'
+
+
+def plot_seasonal_offset_summary(
+    per_group_path='tables/seasonal_cycle_metrics_bootstrap_CI.csv',
+    aggregate_path='tables/seasonal_cycle_metrics_aggregate.csv',
+    metric='offset',
+    output_path=None
+):
+    """Forest plot of the per-group seasonal peak-timing offset (metric=
+    'offset') or amplitude difference (metric='pct_amp_diff') between
+    FLUXNET and ECOCO3, with 95% bootstrap CIs -- one point per group (this
+    metric is already a FLUXNET-vs-ECOCO3 comparison, unlike
+    plot_centroid_shift_summary's two-marker-per-group layout). An
+    'ALL GROUPS' row shows the across-group bootstrap mean (see the
+    two-level bootstrap in the seasonal-metrics scripts), separated from the
+    per-group rows by a gap.
+    """
+    info = _SEASONAL_METRIC_INFO[metric]
+    per_group = pd.read_csv(per_group_path)
+    aggregate = pd.read_csv(aggregate_path).set_index('Variable')
+
+    GROUPINGS = [('By Vegetation Type', 'Veg'), ('By Climate Class', 'kg_label')]
+    row_n = [max(per_group[per_group['Grouping'] == g]['Group'].nunique(), 1) + 2
+             for _, g in GROUPINGS]
+
+    with plt.rc_context(_RCPARAMS):
+        fig = plt.figure(figsize=(30, 32))
+        gs = fig.add_gridspec(2, 3, hspace=0.4, wspace=0.75, height_ratios=row_n)
+        panel_labels = list('abcdef')
+        label_idx = 0
+
+        for row, (row_title, grouping) in enumerate(GROUPINGS):
+            for col, var in enumerate(_VARIABLES):
+                ax = fig.add_subplot(gs[row, col])
+                sub = per_group[(per_group['Grouping'] == grouping) &
+                                 (per_group['Variable'] == var)].copy()
+                sub = sub.sort_values(info['mean_col'], ascending=True)
+                n = len(sub)
+                if n == 0:
+                    ax.set_visible(False)
+                    label_idx += 1
+                    continue
+
+                y_groups = np.arange(n)
+                y_agg = n + 1.8  # gap above the per-group rows
+
+                for i, (_, r) in enumerate(sub.iterrows()):
+                    mean, lo, hi = r[info['mean_col']], r[info['lo_col']], r[info['hi_col']]
+                    xerr = [[max(mean - lo, 0)], [max(hi - mean, 0)]]
+                    ax.errorbar(mean, y_groups[i], xerr=xerr, fmt='o', color=_SEASONAL_POINT_COLOR,
+                                markersize=_MARKER_SIZE, capsize=_CAP_SIZE, lw=_LINE_WIDTH,
+                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                    s = _sig_star(lo - info['ref'], hi - info['ref'])
+                    if s:
+                        ax.text(mean, y_groups[i] + 0.35, s, ha='center',
+                                fontsize=_STAR_SIZE, color=_SEASONAL_POINT_COLOR, zorder=4)
+
+                if var in aggregate.index:
+                    a = aggregate.loc[var]
+                    amean, alo, ahi = a[info['mean_col']], a[info['lo_col']], a[info['hi_col']]
+                    xerr = [[max(amean - alo, 0)], [max(ahi - amean, 0)]]
+                    ax.errorbar(amean, y_agg, xerr=xerr, fmt='D', color=_SEASONAL_AGG_COLOR,
+                                markersize=_MARKER_SIZE * 1.15, capsize=_CAP_SIZE, lw=_LINE_WIDTH,
+                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=5)
+                    s = _sig_star(alo - info['ref'], ahi - info['ref'])
+                    if s:
+                        ax.text(amean, y_agg + 0.35, s, ha='center',
+                                fontsize=_STAR_SIZE, color=_SEASONAL_AGG_COLOR, zorder=6)
+
+                ax.axhline(n + 0.5, color='gray', lw=1.5, ls=':', alpha=0.6)
+                ax.axvline(info['ref'], color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
+                ax.set_ylim(-1, y_agg + 1.1)  # headroom above the aggregate point/star, clear of the title
+                ax.set_yticks(list(y_groups) + [y_agg])
+                ax.set_yticklabels(sub['Group'].tolist() + ['ALL GROUPS'])
+                ax.set_xlabel(info['xlabel'], fontsize=30)
+                ax.set_title(var)
+                ax.grid(axis='x', alpha=0.3, lw=1.5)
+                ax.spines[['top', 'right']].set_visible(False)
+                ax.tick_params(axis='both', width=2.2, length=6)
+                ax.tick_params(axis='x', labelsize=28)
+                ax.tick_params(axis='y', labelsize=max(14, min(32, 380 / n)))
+                ax.text(-0.15, 1.03, f'({panel_labels[label_idx]})',
+                        transform=ax.transAxes, fontsize=70, fontweight='bold')
+                label_idx += 1
+                if col == 0:
+                    ax.text(-0.62, 0.5, row_title, transform=ax.transAxes,
+                            fontsize=52, rotation=90, va='center', ha='center')
+
+        fig.subplots_adjust(top=0.85, bottom=0.1)
+
+        group_p = plt.Line2D([], [], color=_SEASONAL_POINT_COLOR, marker='o', linestyle='None',
+                             markersize=18, label='Individual group')
+        agg_p = plt.Line2D([], [], color=_SEASONAL_AGG_COLOR, marker='D', linestyle='None',
+                           markersize=18, label='All groups (pooled)')
+        sig_p = plt.Line2D([], [], color='gray', marker='$*$', linestyle='None',
+                           markersize=14, label='* CI excludes reference')
+        fig.legend(handles=[group_p, agg_p, sig_p], loc='upper right',
+                   frameon=False, bbox_to_anchor=(0.99, 0.94), fontsize=28)
+        fig.suptitle(info['suptitle'], fontsize=57, y=1.0)
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.show()
