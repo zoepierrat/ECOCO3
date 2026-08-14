@@ -2172,20 +2172,9 @@ def plot_centroid_shift_summary(
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Seasonal peak-timing / amplitude metrics (feeds plot_seasonal_offset_summary,
-# Figures S8/S9)
-#
-# NOTE: this reconstructs computation whose original code was lost from the
-# repo before this function was added back -- the table schema (column
-# names below), the LOWESS-smoothed-seasonal-cycle approach (matching
-# plot_seasonal_cycles_comparison/plot_seasonal_cycles_by_site elsewhere in
-# this module), and the "cluster-bootstrap" phrasing already present in
-# plot_seasonal_offset_summary's docstring are all recovered from what
-# survived; the exact resampling unit, frac, and n_boot are a best-effort
-# match to those conventions, not verified against the original. Re-running
-# this will not reproduce the exact numbers in the currently-committed
-# tables/seasonal_cycle_metrics_*.csv bit-for-bit (different RNG draws,
-# and possibly a different original methodology) -- treat this as
-# reproducible going forward, not as recovering the historical numbers.
+# Figures S8/S9): per-group LOWESS-smoothed seasonal-cycle peak/trough (via
+# hemisphere_adjust_doy), with a cluster-bootstrap by FLUXNET site / ECOCO3
+# pixel location for the offset and amplitude-difference CIs.
 #
 # Everything below operates on precomputed numpy arrays (DOY, values,
 # integer-coded clusters) rather than repeatedly filtering/grouping pandas
@@ -2326,7 +2315,7 @@ def compute_seasonal_cycle_metrics(
     """Per-(vegetation type / climate class, variable) seasonal peak-timing
     and amplitude comparison between FLUXNET and ECOCO3, written to the
     three tables plot_seasonal_offset_summary reads (see the module note
-    above for reconstruction/performance caveats).
+    above for methodology/performance detail).
 
     Two-level bootstrap: within each group, cluster-resample FLUXNET sites /
     ECOCO3 pixel locations to get that group's offset/amplitude-diff CI

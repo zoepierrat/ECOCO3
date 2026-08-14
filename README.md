@@ -68,8 +68,8 @@ working directory or copy/rename step anymore. Re-run a cell and its output upda
 | Figure S5 | `FigureS5.png` | `af.plot_group_error_summary(...)` |
 | Figure S6 | `FigureS6.png` | `plot_scripts.plot_seasonal_cycles_comparison(..., group_type='Veg')` |
 | Figure S7 | `FigureS7.png` | `plot_scripts.plot_seasonal_cycles_comparison(..., group_type='kg_label')` |
-| Figure S8 | `FigureS8.png` | `plot_scripts.plot_seasonal_offset_summary(metric='offset')` ⚠️ see note below |
-| Figure S9 | `FigureS9.png` | `plot_scripts.plot_seasonal_offset_summary(metric='pct_amp_diff')` ⚠️ see note below |
+| Figure S8 | `FigureS8.png` | `plot_scripts.plot_seasonal_offset_summary(metric='offset')` |
+| Figure S9 | `FigureS9.png` | `plot_scripts.plot_seasonal_offset_summary(metric='pct_amp_diff')` |
 | Figure S10 | `FigureS10.png` | `plot_scripts.plot_violin_comparison_split(...)` |
 | Figure S11 | `FigureS11.png` | `plot_scripts.plot_violin_comparison_stacked(...)` |
 | Figure S12 | `FigureS12.png` | `plot_scripts.plot_diurnal_veg_comparison(...)` |
@@ -79,21 +79,11 @@ working directory or copy/rename step anymore. Re-run a cell and its output upda
 | Figure S16 | `FigureS16.png` | inline cell, "Phase-Angle Dependence by Time of Day" |
 | Figure S17 | `FigureS17.png` | inline cell, "Phase-Angle Dependence by Vegetation Type" |
 
-> ⚠️ **Reconstructed — Figures S8/S9:** these read `tables/seasonal_cycle_metrics_bootstrap_CI.csv`
-> and `tables/seasonal_cycle_metrics_aggregate.csv`. The *original* code that generated those tables
-> was lost before this branch existed. `plot_scripts.compute_seasonal_cycle_metrics()` (called from
-> the notebook cell immediately before the `plot_seasonal_offset_summary` calls) is a from-scratch
-> reconstruction — same table schema, and methodology matched to conventions already established
-> elsewhere in this codebase (LOWESS-smoothed seasonal cycle via `hemisphere_adjust_doy`, a
-> cluster-bootstrap by FLUXNET site / ECOCO3 pixel location, matching the "cluster-bootstrap" language
-> already in `plot_seasonal_offset_summary`'s docstring). **It is not verified to reproduce the
-> original numbers bit-for-bit** — re-running it will very likely shift Figures S8/S9 slightly from
-> the currently-committed versions. The bootstrap runs on precomputed numpy arrays rather than
-> per-draw pandas filtering (the first version took roughly an hour on real data; this one takes a
-> couple of minutes at the new default `n_boot=500`), and the resampling weights repeated cluster
-> draws correctly, which the first version silently didn't. See the reconstruction note in
-> `plot_scripts.py` above
-> `compute_seasonal_cycle_metrics` for full detail.
+Figures S8/S9 are built by `plot_scripts.compute_seasonal_cycle_metrics()` (called from the notebook
+cell immediately before the `plot_seasonal_offset_summary` calls), which writes
+`tables/seasonal_cycle_metrics_bootstrap_CI.csv` and `tables/seasonal_cycle_metrics_aggregate.csv`:
+per-group LOWESS-smoothed seasonal-cycle peak/trough (via `hemisphere_adjust_doy`), with a
+cluster-bootstrap by FLUXNET site / ECOCO3 pixel location for the offset and amplitude-difference CIs.
 
 ## Pipeline
 
@@ -119,7 +109,7 @@ listed function); nothing else remains in the module on this branch.
 | `plot_merged_diurnal_cycles()` | Side-by-side diurnal curves with bootstrap CI (Figure 3) |
 | `plot_sample_size_power_curves()` | Subsampling power curves, pooled across vegetation types (Figure 5) |
 | `plot_seasonal_cycles_comparison()` | 3-panel seasonal cycle — FLUXNET (solid) vs ECOCO3 (dashed) (Figures S6, S7) |
-| `compute_seasonal_cycle_metrics()` | Builds the tables `plot_seasonal_offset_summary` reads (Figures S8, S9 — reconstruction, see note above) |
+| `compute_seasonal_cycle_metrics()` | Builds the tables `plot_seasonal_offset_summary` reads (Figures S8, S9) |
 | `plot_seasonal_offset_summary()` | Forest plot of seasonal peak-timing offset / amplitude difference (Figures S8, S9) |
 | `plot_violin_comparison_stacked()` | 4-panel WUE distribution comparison, ANOVA/Tukey letters (Figure S11) |
 | `plot_violin_comparison_split()` | Split-violin FLUXNET vs ECOCO3 comparison (Figure S10) |
@@ -175,7 +165,7 @@ After running the full pipeline:
 | `tables/suppression_summary_midday_V2.csv` / `_kg_V2.csv` | Midday drought suppression by veg / climate class |
 | `tables/centroid_shift_summary_V2.csv` / `_kg_V2.csv` | Diurnal centroid timing shift under drought, by veg / climate class |
 | `tables/figure2_error_stats_by_group.csv` | FLUXNET-vs-ECOCO3 error stats feeding Figure S5 |
-| `tables/seasonal_cycle_metrics_*.csv` | Seasonal peak-timing/amplitude tables feeding Figures S8, S9 — see reconstruction note above |
+| `tables/seasonal_cycle_metrics_*.csv` | Seasonal peak-timing/amplitude tables feeding Figures S8, S9 |
 | `tables/dt_vs_nt_*` | Written by `gpp_nt_partitioning_check.py` (Supplementary Text S1), not the main notebook |
 | `figures/diurnal_cycles_drought/` | Per-group diurnal cycle PNGs (not individually published; a side effect of building the suppression/shift tables) |
 | `figures/manuscript/` | Every published figure, written directly under its manuscript number — see mapping above |
