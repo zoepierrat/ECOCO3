@@ -88,7 +88,11 @@ working directory or copy/rename step anymore. Re-run a cell and its output upda
 > cluster-bootstrap by FLUXNET site / ECOCO3 pixel location, matching the "cluster-bootstrap" language
 > already in `plot_seasonal_offset_summary`'s docstring). **It is not verified to reproduce the
 > original numbers bit-for-bit** — re-running it will very likely shift Figures S8/S9 slightly from
-> the currently-committed versions. See the reconstruction note in `plot_scripts.py` above
+> the currently-committed versions. The bootstrap runs on precomputed numpy arrays rather than
+> per-draw pandas filtering (the first version took roughly an hour on real data; this one takes a
+> couple of minutes at the new default `n_boot=500`), and the resampling weights repeated cluster
+> draws correctly, which the first version silently didn't. See the reconstruction note in
+> `plot_scripts.py` above
 > `compute_seasonal_cycle_metrics` for full detail.
 
 ## Pipeline

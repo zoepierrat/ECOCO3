@@ -2186,54 +2186,102 @@ def plot_centroid_shift_summary(
 # tables/seasonal_cycle_metrics_*.csv bit-for-bit (different RNG draws,
 # and possibly a different original methodology) -- treat this as
 # reproducible going forward, not as recovering the historical numbers.
+#
+# Everything below operates on precomputed numpy arrays (DOY, values,
+# integer-coded clusters) rather than repeatedly filtering/grouping pandas
+# DataFrames inside the bootstrap loop -- pandas' per-call overhead was the
+# dominant cost at n_boot=1000 x ~87 (group, variable) combinations x 2
+# datasets (~174,000 refits). The per-row "weight = how many times this
+# row's cluster was drawn" trick (via np.bincount) also fixes a real bug in
+# the first version of this function: a boolean `np.isin(id, draw)` mask
+# collapses a cluster drawn twice in the same resample down to being
+# included once, silently understating its weight -- with-replacement
+# resampling requires duplicates to actually count as duplicates.
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _seasonal_peak_trough(df, variable, doy_col='DOY', frac=0.2):
-    """DOY-binned daily means, LOWESS-smoothed; returns (peak_doy, peak_val,
-    trough_val) for the smoothed seasonal cycle, or None if there's too
-    little data spread across the year to smooth meaningfully."""
-    doy_means = df.groupby(doy_col)[variable].mean().reset_index().sort_values(doy_col)
-    doy_means = doy_means.dropna(subset=[variable])
-    if len(doy_means) < 10:
+def _doy_weighted_means(doy, values, weights, n_days=367):
+    """Vectorized per-DOY weighted mean via np.bincount -- the fast
+    replacement for a pandas groupby('DOY').mean() that would otherwise
+    run once per bootstrap draw. Returns (doy_values, means) for days with
+    nonzero total weight."""
+    w = weights.astype(float)
+    wsum = np.bincount(doy, weights=w, minlength=n_days)
+    vsum = np.bincount(doy, weights=values * w, minlength=n_days)
+    valid = wsum > 0
+    days = np.nonzero(valid)[0]
+    return days.astype(float), vsum[valid] / wsum[valid]
+
+
+def _peak_trough_from_curve(days, means, frac=0.2, it=0):
+    """LOWESS-smooth a per-DOY mean curve and return (peak_doy, peak_val,
+    trough_val), or None if there are too few points to smooth
+    meaningfully. it=0 skips LOWESS's residual-reweighting passes (default
+    it=3 costs ~4x for outlier-robustness a 1000-plus-iteration bootstrap
+    doesn't need -- bootstrap variance already averages over resamples)."""
+    if len(days) < 10:
         return None
-    smooth = sm.nonparametric.lowess(
-        endog=doy_means[variable], exog=doy_means[doy_col], frac=frac, return_sorted=False
-    )
+    smooth = sm.nonparametric.lowess(endog=means, exog=days, frac=frac, it=it, return_sorted=False)
     peak_idx = int(np.argmax(smooth))
-    return float(doy_means[doy_col].values[peak_idx]), float(smooth[peak_idx]), float(smooth.min())
+    return float(days[peak_idx]), float(smooth[peak_idx]), float(smooth.min())
 
 
-def _seasonal_cluster_ids(df, dataset_label):
-    """Resampling unit for the cluster bootstrap: FLUXNET towers resample by
-    Site (repeat-sampled instrument); ECOCO3 pixels resample by location,
-    since ECOCO3 has no discrete repeat-sampled "site" the way FLUXNET does
-    (same reasoning as plot_seasonal_cycles_by_site's docstring)."""
+def _seasonal_peak_trough(df, variable, doy_col='DOY', frac=0.2, it=0):
+    """DataFrame-based convenience wrapper around _peak_trough_from_curve,
+    for one-off (non-bootstrap) point estimates -- the by-group table in
+    compute_seasonal_cycle_metrics."""
+    sub = df[[doy_col, variable]].dropna()
+    if sub.empty:
+        return None
+    doy = sub[doy_col].to_numpy().astype(int)
+    days, means = _doy_weighted_means(doy, sub[variable].to_numpy(), np.ones(len(doy)))
+    return _peak_trough_from_curve(days, means, frac=frac, it=it)
+
+
+def _seasonal_cluster_codes(df, dataset_label):
+    """Integer-coded resampling unit for the cluster bootstrap: FLUXNET
+    towers resample by Site (repeat-sampled instrument); ECOCO3 pixels
+    resample by location, since ECOCO3 has no discrete repeat-sampled
+    "site" the way FLUXNET does (same reasoning as
+    plot_seasonal_cycles_by_site's docstring). Returns (codes, n_clusters):
+    codes are 0..n_clusters-1, one per row, so a bootstrap draw can be
+    turned into per-row weights via np.bincount instead of a boolean mask
+    (see module note above)."""
     if dataset_label == 'FLUXNET' and 'Site' in df.columns:
-        return df['Site'].astype(str).to_numpy()
-    return (df['Lat'].round(3).astype(str) + '_' + df['Lon'].round(3).astype(str)).to_numpy()
+        ids = df['Site'].astype(str).to_numpy()
+    else:
+        ids = (df['Lat'].round(3).astype(str) + '_' + df['Lon'].round(3).astype(str)).to_numpy()
+    codes, uniques = pd.factorize(ids, sort=False)
+    return codes, len(uniques)
 
 
-def _bootstrap_seasonal_offset_amp(df_flux, df_eco, variable, frac, n_boot, rng):
-    """Cluster-bootstrap (resample sites/pixels with replacement within each
-    dataset) on the ECOCO3-minus-FLUXNET peak-timing offset (days) and the
-    ECOCO3-vs-FLUXNET amplitude percent difference, for one (group, variable).
-    Returns None if either dataset has too few clusters to resample."""
-    flux_id = _seasonal_cluster_ids(df_flux, 'FLUXNET')
-    eco_id = _seasonal_cluster_ids(df_eco, 'ECOCO3')
-    flux_clusters = np.unique(flux_id)
-    eco_clusters = np.unique(eco_id)
-    if len(flux_clusters) < 2 or len(eco_clusters) < 2:
+def _bootstrap_seasonal_offset_amp(
+    flux_doy, flux_values, flux_codes, flux_n_clusters,
+    eco_doy, eco_values, eco_codes, eco_n_clusters,
+    frac, it, n_boot, rng,
+):
+    """Cluster-bootstrap (resample sites/pixels *with replacement*) on the
+    ECOCO3-minus-FLUXNET peak-timing offset (days) and the ECOCO3-vs-FLUXNET
+    amplitude percent difference, for one (group, variable). Takes
+    precomputed numpy arrays (DOY, values, integer cluster codes) -- no
+    pandas filtering inside the loop. Returns None if either dataset has
+    too few clusters to resample."""
+    if flux_n_clusters < 2 or eco_n_clusters < 2:
         return None
 
-    offsets, pct_amp_diffs = [], []
-    for _ in range(n_boot):
-        flux_draw = rng.choice(flux_clusters, len(flux_clusters), replace=True)
-        eco_draw = rng.choice(eco_clusters, len(eco_clusters), replace=True)
-        flux_sample = df_flux[np.isin(flux_id, flux_draw)]
-        eco_sample = df_eco[np.isin(eco_id, eco_draw)]
+    offsets = np.full(n_boot, np.nan)
+    pct_amp_diffs = np.full(n_boot, np.nan)
 
-        flux_stats = _seasonal_peak_trough(flux_sample, variable, frac=frac)
-        eco_stats = _seasonal_peak_trough(eco_sample, variable, frac=frac)
+    for b in range(n_boot):
+        flux_draw = rng.integers(0, flux_n_clusters, flux_n_clusters)
+        eco_draw = rng.integers(0, eco_n_clusters, eco_n_clusters)
+        flux_w = np.bincount(flux_draw, minlength=flux_n_clusters)[flux_codes]
+        eco_w = np.bincount(eco_draw, minlength=eco_n_clusters)[eco_codes]
+
+        f_days, f_means = _doy_weighted_means(flux_doy, flux_values, flux_w)
+        e_days, e_means = _doy_weighted_means(eco_doy, eco_values, eco_w)
+
+        flux_stats = _peak_trough_from_curve(f_days, f_means, frac=frac, it=it)
+        eco_stats = _peak_trough_from_curve(e_days, e_means, frac=frac, it=it)
         if flux_stats is None or eco_stats is None:
             continue
 
@@ -2243,11 +2291,13 @@ def _bootstrap_seasonal_offset_amp(df_flux, df_eco, variable, frac, n_boot, rng)
         if f_amp == 0:
             continue
 
-        offsets.append(e_doy - f_doy)
-        pct_amp_diffs.append((e_amp - f_amp) / f_amp * 100)
+        offsets[b] = e_doy - f_doy
+        pct_amp_diffs[b] = (e_amp - f_amp) / f_amp * 100
 
-    if len(offsets) < 0.5 * n_boot:
+    valid = ~np.isnan(offsets)
+    if valid.sum() < 0.5 * n_boot:
         return None
+    offsets, pct_amp_diffs = offsets[valid], pct_amp_diffs[valid]
 
     return {
         'offset_mean': float(np.mean(offsets)),
@@ -2266,7 +2316,8 @@ def compute_seasonal_cycle_metrics(
     valid_kg,
     variables=('GPP', 'ET', 'WUE'),
     frac=0.2,
-    n_boot=1000,
+    lowess_it=0,
+    n_boot=500,
     random_state=42,
     by_group_path='tables/seasonal_cycle_metrics_by_group.csv',
     bootstrap_path='tables/seasonal_cycle_metrics_bootstrap_CI.csv',
@@ -2274,8 +2325,8 @@ def compute_seasonal_cycle_metrics(
 ):
     """Per-(vegetation type / climate class, variable) seasonal peak-timing
     and amplitude comparison between FLUXNET and ECOCO3, written to the
-    three tables plot_seasonal_offset_summary reads (see the note above this
-    function for reconstruction caveats).
+    three tables plot_seasonal_offset_summary reads (see the module note
+    above for reconstruction/performance caveats).
 
     Two-level bootstrap: within each group, cluster-resample FLUXNET sites /
     ECOCO3 pixel locations to get that group's offset/amplitude-diff CI
@@ -2288,8 +2339,8 @@ def compute_seasonal_cycle_metrics(
 
     flux = df_fluxnet.copy()
     eco = df_ecoco3.copy()
-    flux['DOY'] = hemisphere_adjust_doy(flux['TIMESTAMP'], flux['Lat'])
-    eco['DOY'] = hemisphere_adjust_doy(eco['TIMESTAMP'], eco['Lat'])
+    flux['DOY'] = hemisphere_adjust_doy(flux['TIMESTAMP'], flux['Lat']).astype(int)
+    eco['DOY'] = hemisphere_adjust_doy(eco['TIMESTAMP'], eco['Lat']).astype(int)
 
     by_group_records, bootstrap_records = [], []
 
@@ -2300,9 +2351,26 @@ def compute_seasonal_cycle_metrics(
             if df_flux_g.empty or df_eco_g.empty:
                 continue
 
+            # Cluster codes depend only on Site/location, not on variable --
+            # computed once per group and reused across all `variables`.
+            flux_codes_all, flux_n_clusters = _seasonal_cluster_codes(df_flux_g, 'FLUXNET')
+            eco_codes_all, eco_n_clusters = _seasonal_cluster_codes(df_eco_g, 'ECOCO3')
+            flux_doy_all = df_flux_g['DOY'].to_numpy()
+            eco_doy_all = df_eco_g['DOY'].to_numpy()
+
             for var in variables:
-                flux_stats = _seasonal_peak_trough(df_flux_g, var, frac=frac)
-                eco_stats = _seasonal_peak_trough(df_eco_g, var, frac=frac)
+                flux_ok = df_flux_g[var].notna().to_numpy()
+                eco_ok = df_eco_g[var].notna().to_numpy()
+                if not flux_ok.any() or not eco_ok.any():
+                    continue
+
+                flux_doy, flux_values, flux_codes = flux_doy_all[flux_ok], df_flux_g[var].to_numpy()[flux_ok], flux_codes_all[flux_ok]
+                eco_doy, eco_values, eco_codes = eco_doy_all[eco_ok], df_eco_g[var].to_numpy()[eco_ok], eco_codes_all[eco_ok]
+
+                f_days, f_means = _doy_weighted_means(flux_doy, flux_values, np.ones(len(flux_doy)))
+                e_days, e_means = _doy_weighted_means(eco_doy, eco_values, np.ones(len(eco_doy)))
+                flux_stats = _peak_trough_from_curve(f_days, f_means, frac=frac, it=lowess_it)
+                eco_stats = _peak_trough_from_curve(e_days, e_means, frac=frac, it=lowess_it)
                 if flux_stats is None or eco_stats is None:
                     continue
 
@@ -2320,7 +2388,11 @@ def compute_seasonal_cycle_metrics(
                     'amplitude_ratio': (e_amp / f_amp) if f_amp != 0 else np.nan,
                 })
 
-                boot = _bootstrap_seasonal_offset_amp(df_flux_g, df_eco_g, var, frac, n_boot, rng)
+                boot = _bootstrap_seasonal_offset_amp(
+                    flux_doy, flux_values, flux_codes, flux_n_clusters,
+                    eco_doy, eco_values, eco_codes, eco_n_clusters,
+                    frac, lowess_it, n_boot, rng,
+                )
                 if boot is not None:
                     bootstrap_records.append({'Grouping': grouping, 'Group': group, 'Variable': var, **boot})
 
@@ -2339,12 +2411,9 @@ def compute_seasonal_cycle_metrics(
         amp_means = sub['pct_amp_diff_mean'].to_numpy()
         n = len(sub)
 
-        boot_offset_agg = np.empty(n_boot)
-        boot_amp_agg = np.empty(n_boot)
-        for b in range(n_boot):
-            idx = rng.integers(0, n, n)
-            boot_offset_agg[b] = offset_means[idx].mean()
-            boot_amp_agg[b] = amp_means[idx].mean()
+        idx = rng.integers(0, n, (n_boot, n))
+        boot_offset_agg = offset_means[idx].mean(axis=1)
+        boot_amp_agg = amp_means[idx].mean(axis=1)
 
         agg_records.append({
             'Variable': var,
