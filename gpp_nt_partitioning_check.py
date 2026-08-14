@@ -26,9 +26,9 @@ and TA_F (needed to recompute WUE) from the raw per-site files, joined on
 succeeded are dropped.
 
 The category lists (valid_veg, valid_kg) and the ECOCO3-side data are kept
-identical to the main DT-based analysis (01_Analysis_V6.ipynb) so this is a
+identical to the main DT-based analysis (Analysis.ipynb) so this is a
 clean single-variable (DT vs NT) comparison, not confounded by a different
-category selection. Filtering matches 01_Analysis_V6.ipynb cell 8 (categories
+category selection. Filtering matches Analysis.ipynb cell 8 (categories
 with sufficient data in BOTH vegetation and climate dimensions).
 
 Outputs (parallel to the main notebook's V2 tables, with an _NT suffix):
@@ -114,7 +114,7 @@ def build_nt_fluxnet_hh():
 
 
 def load_ecoco3_hh():
-    """Same loading/filtering as 01_Analysis_V6.ipynb cell 1 — unaffected by
+    """Same loading/filtering as Analysis.ipynb cell 1 — unaffected by
     FLUXNET's GPP partitioning method, reproduced here since this script
     runs standalone rather than inside the notebook kernel."""
     df = pd.read_csv("data/ECOCO3_cleaned/ECOCO3_V2_df_wue_fullset.csv")
@@ -131,7 +131,7 @@ def load_ecoco3_hh():
 
 
 def run_drought_loop(df_ecoco_summer, df_flux_summer, categories, group_col, bins, label_suffix, index_name):
-    """Mirrors cells 16/17 of 01_Analysis_V6.ipynb."""
+    """Mirrors cells 16/17 of Analysis.ipynb."""
     all_records, supp_records, shift_records = [], [], []
 
     for var in categories:
@@ -229,7 +229,7 @@ def main():
     print(f"  valid_kg  ({len(valid_kg)}): {valid_kg}")
 
     # Restrict to categories with sufficient data in BOTH dimensions, matching
-    # the (now fixed) filtering in 01_Analysis_V6.ipynb cell 8.
+    # the (now fixed) filtering in Analysis.ipynb cell 8.
     df_flux = df_flux_nt[df_flux_nt["Veg"].isin(valid_veg) & df_flux_nt["kg_label"].isin(valid_kg)]
     df_ecoco_f = df_ecoco[df_ecoco["Veg"].isin(valid_veg) & df_ecoco["kg_label"].isin(valid_kg)]
 

@@ -18,12 +18,11 @@ ECOCO3/
 ├── plot_scripts.py                         # Visualization module
 ├── analysis_functions.py                   # Shared analysis helpers (site matching, coverage stats, FLUX-vs-ECO plot)
 ├── drought_utils.py                        # SPEI/SPI drought-index extraction helpers
-├── config.py                               # Shared configuration / paths
 │
 ├── Reformat_FLUXNET_Data_Shuttle.ipynb     # Step 0 — reformat raw FLUXNET data shuttle
 ├── 00a_FLUXNET_datashuttle_preprocess.ipynb  # Step 1 — FLUXNET preprocessing & QC
 ├── 00b_ECOCO_preprocess_C2_V1.ipynb          # Step 2 — ECOCO3 C2/V2 preprocessing & QC
-├── 01_Analysis_V6.ipynb                      # Step 3 — main analysis & all published figures
+├── Analysis.ipynb                            # Step 3 — main analysis; writes every manuscript figure directly
 ├── Access_ECOCO_GES_DISC.ipynb               # GES DISC data access helper
 ├── gpp_nt_partitioning_check.py              # Standalone: NT vs DT GPP partitioning sensitivity (Supplementary Text S1)
 │
@@ -39,47 +38,46 @@ ECOCO3/
 │   ├── diurnal_cycles_drought/             # Per-group diurnal cycle PNGs (side effect of the tables
 │   │                                        #   plot_drought_suppression_summary/plot_centroid_shift_summary
 │   │                                        #   read from — regenerated whenever those cells re-run)
-│   ├── C2_validation/                      # Full working set of figures
-│   └── manuscript/                         # Renamed, publication-numbered copies of the figures below
-│       └── supplementary/                  # Renamed, publication-numbered supplementary figures
+│   └── manuscript/                         # Every published figure, written directly under its final
+│       └── supplementary/                  #   manuscript number — see mapping below
 └── tables/                                 # CSV summary tables consumed by the figures above
 ```
 
 ## Manuscript figures
 
-`figures/manuscript/` holds renamed copies of the figures actually used in the manuscript, matching
-its final figure numbering (source files live in `figures/C2_validation/`; nothing here is regenerated
-independently — re-run the corresponding notebook cell and re-copy if a source figure changes).
+`Analysis.ipynb`'s figure-producing cells save straight to `figures/manuscript/` (main text) or
+`figures/manuscript/supplementary/`, under the manuscript's own figure numbers — there's no separate
+working directory or copy/rename step anymore. Re-run a cell and its output updates in place.
 
 **Main text**
 
-| Manuscript | Source (`figures/C2_validation/`) | Notebook cell |
+| Manuscript | File | Notebook cell |
 |---|---|---|
-| Figure 1 | `Figure1.png` | `plot_scripts.plot_data_coverage_map(...)` |
-| Figure 2 | `Figure2.png` | `af.plot_flux_vs_eco(...)` |
-| Figure 3 | `Figure4.png` | `plot_scripts.plot_merged_diurnal_cycles(...)` |
-| Figure 4 | `Figure5.png` | `plot_scripts.plot_diurnal_cycles_spei_comparison(...)`, SPEI |
-| Figure 5 | `sample_size_power_curves.png` | `plot_scripts.plot_sample_size_power_curves(...)` |
+| Figure 1 | `figures/manuscript/Figure1.png` | `plot_scripts.plot_data_coverage_map(...)` |
+| Figure 2 | `figures/manuscript/Figure2.png` | `af.plot_flux_vs_eco(...)` |
+| Figure 3 | `figures/manuscript/Figure3.png` | `plot_scripts.plot_merged_diurnal_cycles(...)` |
+| Figure 4 | `figures/manuscript/Figure4.png` | `plot_scripts.plot_diurnal_cycles_spei_comparison(...)`, SPEI |
+| Figure 5 | `figures/manuscript/Figure5.png` | `plot_scripts.plot_sample_size_power_curves(...)` |
 
-**Supplementary** (`figures/manuscript/supplementary/`)
+**Supplementary**
 
-| Manuscript | Source (`figures/C2_validation/`) | Notebook cell |
+| Manuscript | File (`figures/manuscript/supplementary/`) | Notebook cell |
 |---|---|---|
-| Figure S3 | `FLUXNET_site_coverage_summary.png` | `plot_scripts.plot_data_coverage_map_sites(...)` |
-| Figure S4 | `Figure2_by_site.png` | `af.plot_flux_vs_eco_by_site_map(...)` |
-| Figure S5 | `Figure2_error_stats_by_group.png` | `af.plot_group_error_summary(...)` |
-| Figure S6 | `seasonal_cycles_comparison_veg.png` | `plot_scripts.plot_seasonal_cycles_comparison(..., group_type='Veg')` |
-| Figure S7 | `seasonal_cycles_comparison_kg.png` | `plot_scripts.plot_seasonal_cycles_comparison(..., group_type='kg_label')` |
-| Figure S8 | `seasonal_timing_offset_summary.png` | `plot_scripts.plot_seasonal_offset_summary(metric='offset')` ⚠️ see note below |
-| Figure S9 | `seasonal_amplitude_diff_summary.png` | `plot_scripts.plot_seasonal_offset_summary(metric='pct_amp_diff')` ⚠️ see note below |
-| Figure S10 | `Figure3b.png` | `plot_scripts.plot_violin_comparison_split(...)` |
-| Figure S11 | `Figure3.png` | `plot_scripts.plot_violin_comparison_stacked(...)` |
-| Figure S12 | `diurnal_wue_by_veg.png` | `plot_scripts.plot_diurnal_veg_comparison(...)` |
-| Figure S13 | `Figure5_SPI.png` | `plot_scripts.plot_diurnal_cycles_spei_comparison(...)`, SPI |
-| Figure S14 | `drought_suppression_summary.png` | `plot_scripts.plot_drought_suppression_summary(...)` |
-| Figure S15 | `centroid_shift_summary.png` | `plot_scripts.plot_centroid_shift_summary(...)` |
-| Figure S16 | `Figure6.png` | inline cell, "Phase-Angle Dependence by Time of Day" |
-| Figure S17 | `phase_angle_by_veg.png` | inline cell, "Phase-Angle Dependence by Vegetation Type" |
+| Figure S3 | `FigureS3.png` | `plot_scripts.plot_data_coverage_map_sites(...)` |
+| Figure S4 | `FigureS4.png` | `af.plot_flux_vs_eco_by_site_map(...)` |
+| Figure S5 | `FigureS5.png` | `af.plot_group_error_summary(...)` |
+| Figure S6 | `FigureS6.png` | `plot_scripts.plot_seasonal_cycles_comparison(..., group_type='Veg')` |
+| Figure S7 | `FigureS7.png` | `plot_scripts.plot_seasonal_cycles_comparison(..., group_type='kg_label')` |
+| Figure S8 | `FigureS8.png` | `plot_scripts.plot_seasonal_offset_summary(metric='offset')` ⚠️ see note below |
+| Figure S9 | `FigureS9.png` | `plot_scripts.plot_seasonal_offset_summary(metric='pct_amp_diff')` ⚠️ see note below |
+| Figure S10 | `FigureS10.png` | `plot_scripts.plot_violin_comparison_split(...)` |
+| Figure S11 | `FigureS11.png` | `plot_scripts.plot_violin_comparison_stacked(...)` |
+| Figure S12 | `FigureS12.png` | `plot_scripts.plot_diurnal_veg_comparison(...)` |
+| Figure S13 | `FigureS13.png` | `plot_scripts.plot_diurnal_cycles_spei_comparison(...)`, SPI |
+| Figure S14 | `FigureS14.png` | `plot_scripts.plot_drought_suppression_summary(...)` |
+| Figure S15 | `FigureS15.png` | `plot_scripts.plot_centroid_shift_summary(...)` |
+| Figure S16 | `FigureS16.png` | inline cell, "Phase-Angle Dependence by Time of Day" |
+| Figure S17 | `FigureS17.png` | inline cell, "Phase-Angle Dependence by Vegetation Type" |
 
 > ⚠️ **Reconstructed — Figures S8/S9:** these read `tables/seasonal_cycle_metrics_bootstrap_CI.csv`
 > and `tables/seasonal_cycle_metrics_aggregate.csv`. The *original* code that generated those tables
@@ -100,11 +98,11 @@ Run notebooks in order:
 1. **`Reformat_FLUXNET_Data_Shuttle.ipynb`** — reads the raw FLUXNET data shuttle snapshot, attaches Köppen-Geiger climate class, and writes `complete_fluxnet_data_shuttle_metadata_table.csv`
 2. **`00a_FLUXNET_datashuttle_preprocess.ipynb`** — QC, gap-filling, WUE computation for FLUXNET; writes half-hourly and daily CSVs + metadata
 3. **`00b_ECOCO_preprocess_C2_V1.ipynb`** — QC and WUE computation for ECOCO3; attaches SPEI/SPI and climate class
-4. **`01_Analysis_V6.ipynb`** — loads both datasets, filters to valid vegetation/climate groups, produces every figure and table listed above. Imports shared logic from `analysis_functions.py`, `drought_utils.py`, and `plot_scripts.py`.
+4. **`Analysis.ipynb`** — loads both datasets, filters to valid vegetation/climate groups, produces every figure and table listed above. Imports shared logic from `analysis_functions.py`, `drought_utils.py`, and `plot_scripts.py`.
 
 ## plot_scripts.py — Function Reference
 
-Every function below is called from `01_Analysis_V6.ipynb` (directly or as a helper of another
+Every function below is called from `Analysis.ipynb` (directly or as a helper of another
 listed function); nothing else remains in the module on this branch.
 
 | Function | Description |
@@ -136,7 +134,7 @@ listed function); nothing else remains in the module on this branch.
 
 `gpp_nt_partitioning_check.py` — standalone script checking whether using FLUXNET's nighttime-partitioned
 GPP (`GPP_NT_VUT_USTAR50`) instead of the daytime-partitioned GPP used throughout the main analysis
-changes the results. Not called from `01_Analysis_V6.ipynb` and doesn't produce a numbered figure, but
+changes the results. Not called from `Analysis.ipynb` and doesn't produce a numbered figure, but
 is the source for the manuscript's "flux-partitioning approaches did not change our results (Supplementary
 Text S1)" claim, so it's kept on this branch even though it's outside the figure-pruning scope of
 everything above. Run standalone: `python gpp_nt_partitioning_check.py`.
@@ -176,5 +174,4 @@ After running the full pipeline:
 | `tables/seasonal_cycle_metrics_*.csv` | Seasonal peak-timing/amplitude tables feeding Figures S8, S9 — see reconstruction note above |
 | `tables/dt_vs_nt_*` | Written by `gpp_nt_partitioning_check.py` (Supplementary Text S1), not the main notebook |
 | `figures/diurnal_cycles_drought/` | Per-group diurnal cycle PNGs (not individually published; a side effect of building the suppression/shift tables) |
-| `figures/C2_validation/` | Full working set of figures |
-| `figures/manuscript/` | Renamed, publication-numbered figures — see mapping above |
+| `figures/manuscript/` | Every published figure, written directly under its manuscript number — see mapping above |

@@ -1,6 +1,5 @@
 """
-Shared analysis helpers used by both the C1 and C2 ECOCO3 analysis notebooks
-(01_Analysis_V5.ipynb and 01_Analysis_V6.ipynb): coverage stats, FLUXNET/ECOCO3
+Shared analysis helpers used by Analysis.ipynb: coverage stats, FLUXNET/ECOCO3
 site matching, and the FLUXNET-vs-ECOCO3 scatter comparison figure.
 """
 
