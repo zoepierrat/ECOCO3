@@ -4,10 +4,11 @@ This repository contains the data analysis workflow comparing ECOCO3 satellite-d
 flux estimates against FLUXNET tower observations, with a focus on diurnal and seasonal WUE
 patterns under drought stress.
 
-**This `publication` branch is pruned to exactly what's needed to reproduce the manuscript's
-figures** — old/superseded pipeline versions, one-off robustness-check scripts, and exploratory
-notebook cells that don't feed a published figure have been removed. See `version-2` (or later)
-for the full working history.
+**This `publication` branch is pruned to what's needed to reproduce the manuscript's figures**
+(plus `gpp_nt_partitioning_check.py`, kept for Supplementary Text S1) — old/superseded pipeline
+versions, other one-off robustness-check scripts, and exploratory notebook cells that don't feed a
+published figure or the supplementary text have been removed. See `version-2` (or later) for the
+full working history.
 
 ## Project Structure
 
@@ -24,6 +25,7 @@ ECOCO3/
 ├── 00b_ECOCO_preprocess_C2_V1.ipynb          # Step 2 — ECOCO3 C2/V2 preprocessing & QC
 ├── 01_Analysis_V6.ipynb                      # Step 3 — main analysis & all published figures
 ├── Access_ECOCO_GES_DISC.ipynb               # GES DISC data access helper
+├── gpp_nt_partitioning_check.py              # Standalone: NT vs DT GPP partitioning sensitivity (Supplementary Text S1)
 │
 ├── data/
 │   ├── Support/                            # External reference datasets (not in git)
@@ -79,14 +81,17 @@ independently — re-run the corresponding notebook cell and re-copy if a source
 | Figure S16 | `Figure6.png` | inline cell, "Phase-Angle Dependence by Time of Day" |
 | Figure S17 | `phase_angle_by_veg.png` | inline cell, "Phase-Angle Dependence by Vegetation Type" |
 
-> ⚠️ **Known gap — Figures S8/S9:** these read `tables/seasonal_cycle_metrics_bootstrap_CI.csv` and
-> `tables/seasonal_cycle_metrics_aggregate.csv`, but no cell in this notebook (or anywhere else in the
-> repo) generates those tables — the original generating code appears to have been lost before this
-> branch was created. The CSVs are kept as-is so the figures still render, but the amplitude/peak-timing
-> computation behind them is **not currently reproducible from this repo**. If you need to regenerate
-> them, the column structure (`{DATASET}_peak_doy`, `{DATASET}_peak_val`, `{DATASET}_trough_val`,
-> `{DATASET}_amplitude = peak_val − trough_val`, `amplitude_ratio`, `peak_doy_offset`) is recoverable
-> from `tables/seasonal_cycle_metrics_by_group.csv`, which is also kept for reference.
+> ⚠️ **Reconstructed — Figures S8/S9:** these read `tables/seasonal_cycle_metrics_bootstrap_CI.csv`
+> and `tables/seasonal_cycle_metrics_aggregate.csv`. The *original* code that generated those tables
+> was lost before this branch existed. `plot_scripts.compute_seasonal_cycle_metrics()` (called from
+> the notebook cell immediately before the `plot_seasonal_offset_summary` calls) is a from-scratch
+> reconstruction — same table schema, and methodology matched to conventions already established
+> elsewhere in this codebase (LOWESS-smoothed seasonal cycle via `hemisphere_adjust_doy`, a
+> cluster-bootstrap by FLUXNET site / ECOCO3 pixel location, matching the "cluster-bootstrap" language
+> already in `plot_seasonal_offset_summary`'s docstring). **It is not verified to reproduce the
+> original numbers bit-for-bit** — re-running it will very likely shift Figures S8/S9 slightly from
+> the currently-committed versions. See the reconstruction note in `plot_scripts.py` above
+> `compute_seasonal_cycle_metrics` for full detail.
 
 ## Pipeline
 
@@ -112,7 +117,8 @@ listed function); nothing else remains in the module on this branch.
 | `plot_merged_diurnal_cycles()` | Side-by-side diurnal curves with bootstrap CI (Figure 3) |
 | `plot_sample_size_power_curves()` | Subsampling power curves, pooled across vegetation types (Figure 5) |
 | `plot_seasonal_cycles_comparison()` | 3-panel seasonal cycle — FLUXNET (solid) vs ECOCO3 (dashed) (Figures S6, S7) |
-| `plot_seasonal_offset_summary()` | Forest plot of seasonal peak-timing offset / amplitude difference (Figures S8, S9 — see known-gap note above) |
+| `compute_seasonal_cycle_metrics()` | Builds the tables `plot_seasonal_offset_summary` reads (Figures S8, S9 — reconstruction, see note above) |
+| `plot_seasonal_offset_summary()` | Forest plot of seasonal peak-timing offset / amplitude difference (Figures S8, S9) |
 | `plot_violin_comparison_stacked()` | 4-panel WUE distribution comparison, ANOVA/Tukey letters (Figure S11) |
 | `plot_violin_comparison_split()` | Split-violin FLUXNET vs ECOCO3 comparison (Figure S10) |
 | `plot_drought_suppression_summary()` | Forest plots of midday Δ + 95% bootstrap CI by veg & climate (Figure S14) |
@@ -123,7 +129,17 @@ listed function); nothing else remains in the module on this branch.
 `apply_lowess`, `compute_diurnal_centroid`, `get_stats`, `get_group_letters`, `hour_to_timestamp`,
 `hemisphere_adjust_doy`, `plot_violin`, `plot_violin_split`, `_load_supp`, `_load_shift`, `_sig_star`,
 `_bootstrap_diurnal_centroid`, `_bootstrap_delta`, `_power_curve_centroid`, `_power_curve_delta`,
-`_extend_to_actual`, `_fast_centroid`, `_repeats_for`
+`_extend_to_actual`, `_fast_centroid`, `_repeats_for`, `_seasonal_peak_trough`, `_seasonal_cluster_ids`,
+`_bootstrap_seasonal_offset_amp`
+
+## Kept for Supplementary Text, not a manuscript figure
+
+`gpp_nt_partitioning_check.py` — standalone script checking whether using FLUXNET's nighttime-partitioned
+GPP (`GPP_NT_VUT_USTAR50`) instead of the daytime-partitioned GPP used throughout the main analysis
+changes the results. Not called from `01_Analysis_V6.ipynb` and doesn't produce a numbered figure, but
+is the source for the manuscript's "flux-partitioning approaches did not change our results (Supplementary
+Text S1)" claim, so it's kept on this branch even though it's outside the figure-pruning scope of
+everything above. Run standalone: `python gpp_nt_partitioning_check.py`.
 
 ## Setup
 
@@ -157,7 +173,8 @@ After running the full pipeline:
 | `tables/suppression_summary_midday_V2.csv` / `_kg_V2.csv` | Midday drought suppression by veg / climate class |
 | `tables/centroid_shift_summary_V2.csv` / `_kg_V2.csv` | Diurnal centroid timing shift under drought, by veg / climate class |
 | `tables/figure2_error_stats_by_group.csv` | FLUXNET-vs-ECOCO3 error stats feeding Figure S5 |
-| `tables/seasonal_cycle_metrics_*.csv` | Seasonal peak-timing/amplitude tables feeding Figures S8, S9 — see known-gap note above |
+| `tables/seasonal_cycle_metrics_*.csv` | Seasonal peak-timing/amplitude tables feeding Figures S8, S9 — see reconstruction note above |
+| `tables/dt_vs_nt_*` | Written by `gpp_nt_partitioning_check.py` (Supplementary Text S1), not the main notebook |
 | `figures/diurnal_cycles_drought/` | Per-group diurnal cycle PNGs (not individually published; a side effect of building the suppression/shift tables) |
 | `figures/C2_validation/` | Full working set of figures |
 | `figures/manuscript/` | Renamed, publication-numbered figures — see mapping above |

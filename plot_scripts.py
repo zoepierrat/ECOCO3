@@ -2170,6 +2170,224 @@ def plot_centroid_shift_summary(
         plt.show()
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Seasonal peak-timing / amplitude metrics (feeds plot_seasonal_offset_summary,
+# Figures S8/S9)
+#
+# NOTE: this reconstructs computation whose original code was lost from the
+# repo before this function was added back -- the table schema (column
+# names below), the LOWESS-smoothed-seasonal-cycle approach (matching
+# plot_seasonal_cycles_comparison/plot_seasonal_cycles_by_site elsewhere in
+# this module), and the "cluster-bootstrap" phrasing already present in
+# plot_seasonal_offset_summary's docstring are all recovered from what
+# survived; the exact resampling unit, frac, and n_boot are a best-effort
+# match to those conventions, not verified against the original. Re-running
+# this will not reproduce the exact numbers in the currently-committed
+# tables/seasonal_cycle_metrics_*.csv bit-for-bit (different RNG draws,
+# and possibly a different original methodology) -- treat this as
+# reproducible going forward, not as recovering the historical numbers.
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _seasonal_peak_trough(df, variable, doy_col='DOY', frac=0.2):
+    """DOY-binned daily means, LOWESS-smoothed; returns (peak_doy, peak_val,
+    trough_val) for the smoothed seasonal cycle, or None if there's too
+    little data spread across the year to smooth meaningfully."""
+    doy_means = df.groupby(doy_col)[variable].mean().reset_index().sort_values(doy_col)
+    doy_means = doy_means.dropna(subset=[variable])
+    if len(doy_means) < 10:
+        return None
+    smooth = sm.nonparametric.lowess(
+        endog=doy_means[variable], exog=doy_means[doy_col], frac=frac, return_sorted=False
+    )
+    peak_idx = int(np.argmax(smooth))
+    return float(doy_means[doy_col].values[peak_idx]), float(smooth[peak_idx]), float(smooth.min())
+
+
+def _seasonal_cluster_ids(df, dataset_label):
+    """Resampling unit for the cluster bootstrap: FLUXNET towers resample by
+    Site (repeat-sampled instrument); ECOCO3 pixels resample by location,
+    since ECOCO3 has no discrete repeat-sampled "site" the way FLUXNET does
+    (same reasoning as plot_seasonal_cycles_by_site's docstring)."""
+    if dataset_label == 'FLUXNET' and 'Site' in df.columns:
+        return df['Site'].astype(str).to_numpy()
+    return (df['Lat'].round(3).astype(str) + '_' + df['Lon'].round(3).astype(str)).to_numpy()
+
+
+def _bootstrap_seasonal_offset_amp(df_flux, df_eco, variable, frac, n_boot, rng):
+    """Cluster-bootstrap (resample sites/pixels with replacement within each
+    dataset) on the ECOCO3-minus-FLUXNET peak-timing offset (days) and the
+    ECOCO3-vs-FLUXNET amplitude percent difference, for one (group, variable).
+    Returns None if either dataset has too few clusters to resample."""
+    flux_id = _seasonal_cluster_ids(df_flux, 'FLUXNET')
+    eco_id = _seasonal_cluster_ids(df_eco, 'ECOCO3')
+    flux_clusters = np.unique(flux_id)
+    eco_clusters = np.unique(eco_id)
+    if len(flux_clusters) < 2 or len(eco_clusters) < 2:
+        return None
+
+    offsets, pct_amp_diffs = [], []
+    for _ in range(n_boot):
+        flux_draw = rng.choice(flux_clusters, len(flux_clusters), replace=True)
+        eco_draw = rng.choice(eco_clusters, len(eco_clusters), replace=True)
+        flux_sample = df_flux[np.isin(flux_id, flux_draw)]
+        eco_sample = df_eco[np.isin(eco_id, eco_draw)]
+
+        flux_stats = _seasonal_peak_trough(flux_sample, variable, frac=frac)
+        eco_stats = _seasonal_peak_trough(eco_sample, variable, frac=frac)
+        if flux_stats is None or eco_stats is None:
+            continue
+
+        f_doy, f_peak, f_trough = flux_stats
+        e_doy, e_peak, e_trough = eco_stats
+        f_amp, e_amp = f_peak - f_trough, e_peak - e_trough
+        if f_amp == 0:
+            continue
+
+        offsets.append(e_doy - f_doy)
+        pct_amp_diffs.append((e_amp - f_amp) / f_amp * 100)
+
+    if len(offsets) < 0.5 * n_boot:
+        return None
+
+    return {
+        'offset_mean': float(np.mean(offsets)),
+        'offset_ci_low': float(np.percentile(offsets, 2.5)),
+        'offset_ci_high': float(np.percentile(offsets, 97.5)),
+        'pct_amp_diff_mean': float(np.mean(pct_amp_diffs)),
+        'pct_amp_diff_ci_low': float(np.percentile(pct_amp_diffs, 2.5)),
+        'pct_amp_diff_ci_high': float(np.percentile(pct_amp_diffs, 97.5)),
+    }
+
+
+def compute_seasonal_cycle_metrics(
+    df_fluxnet,
+    df_ecoco3,
+    valid_veg,
+    valid_kg,
+    variables=('GPP', 'ET', 'WUE'),
+    frac=0.2,
+    n_boot=1000,
+    random_state=42,
+    by_group_path='tables/seasonal_cycle_metrics_by_group.csv',
+    bootstrap_path='tables/seasonal_cycle_metrics_bootstrap_CI.csv',
+    aggregate_path='tables/seasonal_cycle_metrics_aggregate.csv',
+):
+    """Per-(vegetation type / climate class, variable) seasonal peak-timing
+    and amplitude comparison between FLUXNET and ECOCO3, written to the
+    three tables plot_seasonal_offset_summary reads (see the note above this
+    function for reconstruction caveats).
+
+    Two-level bootstrap: within each group, cluster-resample FLUXNET sites /
+    ECOCO3 pixel locations to get that group's offset/amplitude-diff CI
+    (-> bootstrap_path); then resample the set of *groups* themselves to get
+    the across-group aggregate CI per variable (-> aggregate_path).
+
+    Returns (df_by_group, df_bootstrap, df_aggregate).
+    """
+    rng = np.random.default_rng(random_state)
+
+    flux = df_fluxnet.copy()
+    eco = df_ecoco3.copy()
+    flux['DOY'] = hemisphere_adjust_doy(flux['TIMESTAMP'], flux['Lat'])
+    eco['DOY'] = hemisphere_adjust_doy(eco['TIMESTAMP'], eco['Lat'])
+
+    by_group_records, bootstrap_records = [], []
+
+    for grouping, group_col, groups in [('Veg', 'Veg', valid_veg), ('kg_label', 'kg_label', valid_kg)]:
+        for group in groups:
+            df_flux_g = flux[flux[group_col] == group]
+            df_eco_g = eco[eco[group_col] == group]
+            if df_flux_g.empty or df_eco_g.empty:
+                continue
+
+            for var in variables:
+                flux_stats = _seasonal_peak_trough(df_flux_g, var, frac=frac)
+                eco_stats = _seasonal_peak_trough(df_eco_g, var, frac=frac)
+                if flux_stats is None or eco_stats is None:
+                    continue
+
+                f_doy, f_peak, f_trough = flux_stats
+                e_doy, e_peak, e_trough = eco_stats
+                f_amp, e_amp = f_peak - f_trough, e_peak - e_trough
+
+                by_group_records.append({
+                    'Grouping': grouping, 'Group': group, 'Variable': var,
+                    'FLUXNET_peak_doy': f_doy, 'FLUXNET_peak_val': f_peak, 'FLUXNET_trough_val': f_trough,
+                    'FLUXNET_amplitude': f_amp,
+                    'ECOCO3_peak_doy': e_doy, 'ECOCO3_peak_val': e_peak, 'ECOCO3_trough_val': e_trough,
+                    'ECOCO3_amplitude': e_amp,
+                    'peak_doy_offset': e_doy - f_doy,
+                    'amplitude_ratio': (e_amp / f_amp) if f_amp != 0 else np.nan,
+                })
+
+                boot = _bootstrap_seasonal_offset_amp(df_flux_g, df_eco_g, var, frac, n_boot, rng)
+                if boot is not None:
+                    bootstrap_records.append({'Grouping': grouping, 'Group': group, 'Variable': var, **boot})
+
+    df_by_group = pd.DataFrame(by_group_records)
+    df_bootstrap = pd.DataFrame(bootstrap_records)
+
+    df_by_group.to_csv(by_group_path, index=False)
+    df_bootstrap.to_csv(bootstrap_path, index=False)
+
+    agg_records = []
+    for var in variables:
+        sub = df_bootstrap[df_bootstrap['Variable'] == var]
+        if sub.empty:
+            continue
+        offset_means = sub['offset_mean'].to_numpy()
+        amp_means = sub['pct_amp_diff_mean'].to_numpy()
+        n = len(sub)
+
+        boot_offset_agg = np.empty(n_boot)
+        boot_amp_agg = np.empty(n_boot)
+        for b in range(n_boot):
+            idx = rng.integers(0, n, n)
+            boot_offset_agg[b] = offset_means[idx].mean()
+            boot_amp_agg[b] = amp_means[idx].mean()
+
+        agg_records.append({
+            'Variable': var,
+            'n_groups': n,
+            'offset_mean': float(offset_means.mean()),
+            'offset_ci_low': float(np.percentile(boot_offset_agg, 2.5)),
+            'offset_ci_high': float(np.percentile(boot_offset_agg, 97.5)),
+            'pct_amp_diff_mean': float(amp_means.mean()),
+            'pct_amp_diff_ci_low': float(np.percentile(boot_amp_agg, 2.5)),
+            'pct_amp_diff_ci_high': float(np.percentile(boot_amp_agg, 97.5)),
+        })
+
+    df_aggregate = pd.DataFrame(agg_records)
+    df_aggregate.to_csv(aggregate_path, index=False)
+
+    return df_by_group, df_bootstrap, df_aggregate
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Figure: seasonal-cycle peak-timing / amplitude offset forest plots
+# (see hemisphere_adjust_doy, plot_seasonal_cycles_by_site -- same underlying
+# cluster-bootstrap CIs, one point per group instead of two, since the offset
+# metric here (ECOCO3 minus FLUXNET) is already a cross-dataset comparison).
+# ──────────────────────────────────────────────────────────────────────────────
+
+_SEASONAL_METRIC_INFO = {
+    'offset': dict(
+        mean_col='offset_mean', lo_col='offset_ci_low', hi_col='offset_ci_high',
+        ref=0, xlabel='ECOCO3 − FLUXNET [days]',
+        suptitle='Seasonal Peak-Timing Offset (95% Bootstrap CI)\n'
+                  'Negative = ECOCO3 peaks earlier  |  Positive = ECOCO3 peaks later',
+    ),
+    'pct_amp_diff': dict(
+        mean_col='pct_amp_diff_mean', lo_col='pct_amp_diff_ci_low', hi_col='pct_amp_diff_ci_high',
+        ref=0, xlabel='ECOCO3 vs FLUXNET [%]',
+        suptitle='Seasonal Amplitude Difference (95% Bootstrap CI)\n'
+                  'Negative = ECOCO3 amplitude smaller  |  Positive = ECOCO3 amplitude larger',
+    ),
+}
+_SEASONAL_POINT_COLOR = '#2C7FB8'
+_SEASONAL_AGG_COLOR   = '#D95F0E'
+
+
 def plot_seasonal_offset_summary(
     per_group_path='tables/seasonal_cycle_metrics_bootstrap_CI.csv',
     aggregate_path='tables/seasonal_cycle_metrics_aggregate.csv',
