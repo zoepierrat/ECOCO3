@@ -1942,7 +1942,7 @@ _CAP_SIZE    = 6
 _LINE_WIDTH  = 3.0
 _ELINE_WIDTH = 2.8
 _VLINE_WIDTH = 2.8
-_STAR_SIZE   = 57
+_STAR_SIZE   = 44
 
 def _sig_star(lo, hi):
     return '*' if (lo > 0 or hi < 0) else ''
@@ -1959,6 +1959,40 @@ _RCPARAMS = {
     'ytick.major.width': 2.2,
     'font.weight':       'normal',
 }
+
+# Fixed (not scale-derived) font/line sizes shared by the three tall forest-
+# plot functions below (plot_drought_suppression_summary,
+# plot_centroid_shift_summary, plot_seasonal_offset_summary). Their figures
+# are a uniform 1.8x zoom of a smaller design (see each function's figsize
+# comment) to give the significance-star glyph headroom against the row
+# pitch -- every text/line element here is one explicit, shared value
+# instead of a per-call ad hoc "* SCALE", so the same element (a title, an
+# axis label, a tick) is the same size in every panel of every one of these
+# four figures. Local to these three functions; _RCPARAMS itself (and every
+# other figure using it) is untouched.
+_FOREST_RCPARAMS = {
+    'font.size':         95,
+    'axes.titlesize':    95,
+    'axes.labelsize':    85,
+    'xtick.labelsize':   70,
+    'ytick.labelsize':   70,
+    'legend.fontsize':   60,
+    'axes.linewidth':    4.5,
+    'xtick.major.width': 4.0,
+    'ytick.major.width': 4.0,
+    'font.weight':       'normal',
+}
+_FOREST_PANEL_LABEL_SIZE = 110   # (a) (b) (c) ...
+_FOREST_ROW_LABEL_SIZE   = 85    # rotated "By Vegetation Type" / "By Climate Class"
+_FOREST_SUPTITLE_SIZE    = 100
+_FOREST_TICK_WIDTH       = 4.0
+_FOREST_TICK_LENGTH      = 11
+_FOREST_GRID_LW          = 2.7
+_FOREST_MARKER_SIZE      = 25
+_FOREST_CAP_SIZE         = 11
+_FOREST_LINE_WIDTH       = 5.4
+_FOREST_ELINE_WIDTH      = 5.0
+_FOREST_VLINE_WIDTH      = 5.0
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1991,9 +2025,23 @@ def plot_drought_suppression_summary(
     row_n = [max(df.groupby('Variable').size().max() if len(df) else 1, 1)
              for _, df in GROUPINGS]
 
-    with plt.rc_context(_RCPARAMS):
-        fig = plt.figure(figsize=(30, 30))
-        gs  = fig.add_gridspec(2, 3, hspace=0.6, wspace=0.75, height_ratios=row_n)
+    SCALE = 1.8  # a uniform zoom of the original (30, 30) design -- purely
+                 # geometric (figsize only); every font/line/marker below is
+                 # a fixed value from the shared _FOREST_* constants instead,
+                 # so sizes are identical across every panel of this figure
+                 # and match the other three forest plots exactly
+
+    with plt.rc_context(_FOREST_RCPARAMS):
+        fig = plt.figure(figsize=(30 * SCALE, 30 * SCALE))  # both dimensions scaled
+                                             # together, so every axes-fraction-relative
+                                             # layout (title vs. column width, panel
+                                             # label vs. title, wspace/hspace gaps) keeps
+                                             # its original proportions at the bigger
+                                             # fonts, AND the significance-star glyph (a
+                                             # fixed screen-point size) gets headroom
+                                             # against the row pitch that fixed the
+                                             # original star/row overlap bug
+        gs  = fig.add_gridspec(2, 3, hspace=0.35, wspace=0.75, height_ratios=row_n)
         panel_labels = list('abcdef')
         label_idx = 0
 
@@ -2014,53 +2062,54 @@ def plot_drought_suppression_summary(
                     xerr_f = [[max(r.delta_FLUX  - r.ci25_FLUX,  0)],
                               [max(r.ci975_FLUX  - r.delta_FLUX,  0)]]
                     ax.errorbar(r.delta_FLUX, y_flux[i], xerr=xerr_f,
-                                fmt='s', color=_FLUX_COLOR, markersize=_MARKER_SIZE,
-                                capsize=_CAP_SIZE, lw=_LINE_WIDTH,
-                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                                fmt='s', color=_FLUX_COLOR, markersize=_FOREST_MARKER_SIZE,
+                                capsize=_FOREST_CAP_SIZE, lw=_FOREST_LINE_WIDTH,
+                                elinewidth=_FOREST_ELINE_WIDTH, capthick=_FOREST_ELINE_WIDTH, zorder=3)
                     s = _sig_star(r.ci25_FLUX, r.ci975_FLUX)
                     if s:
-                        ax.text(r.delta_FLUX, y_flux[i] + 0.22, s,
-                                ha='center', fontsize=_STAR_SIZE, color=_FLUX_COLOR, zorder=4)
+                        ax.annotate(s, (r.delta_FLUX, y_flux[i]), ha='center',
+                                    fontsize=_STAR_SIZE, color=_FLUX_COLOR, zorder=4,
+                                    textcoords='offset points', xytext=(0, 6))
 
                     xerr_e = [[max(r.delta_ECOCO - r.ci25_ECOCO,  0)],
                               [max(r.ci975_ECOCO - r.delta_ECOCO, 0)]]
                     ax.errorbar(r.delta_ECOCO, y_eco[i], xerr=xerr_e,
-                                fmt='o', color=_ECO_COLOR, markersize=_MARKER_SIZE,
-                                capsize=_CAP_SIZE, lw=_LINE_WIDTH,
-                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                                fmt='o', color=_ECO_COLOR, markersize=_FOREST_MARKER_SIZE,
+                                capsize=_FOREST_CAP_SIZE, lw=_FOREST_LINE_WIDTH,
+                                elinewidth=_FOREST_ELINE_WIDTH, capthick=_FOREST_ELINE_WIDTH, zorder=3)
                     s = _sig_star(r.ci25_ECOCO, r.ci975_ECOCO)
                     if s:
-                        ax.text(r.delta_ECOCO, y_eco[i] + 0.22, s,
-                                ha='center', fontsize=_STAR_SIZE, color=_ECO_COLOR, zorder=4)
+                        ax.annotate(s, (r.delta_ECOCO, y_eco[i]), ha='center',
+                                    fontsize=_STAR_SIZE, color=_ECO_COLOR, zorder=4,
+                                    textcoords='offset points', xytext=(0, 6))
 
-                ax.axvline(0, color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
+                ax.axvline(0, color='black', lw=_FOREST_VLINE_WIDTH, ls='--', alpha=0.5)
                 ax.set_yticks(y_flux + 0.35)
                 ax.set_yticklabels(sub['Group'].tolist())
                 ax.set_xlabel(f'Midday Δ \n [{_UNITS[var]}]')
                 ax.set_title(var)
-                ax.grid(axis='x', alpha=0.3, lw=1.5)
+                ax.grid(axis='x', alpha=0.3, lw=_FOREST_GRID_LW)
                 ax.spines[['top', 'right']].set_visible(False)
-                ax.tick_params(axis='both', width=2.2, length=6)
-                ax.tick_params(axis='y', labelsize=max(14, min(32, 380 / n)))
+                ax.tick_params(axis='both', width=_FOREST_TICK_WIDTH, length=_FOREST_TICK_LENGTH)
                 ax.text(-0.15, 1.03, f'({panel_labels[label_idx]})',
-                        transform=ax.transAxes, fontsize=70, fontweight='bold')
+                        transform=ax.transAxes, fontsize=_FOREST_PANEL_LABEL_SIZE, fontweight='bold')
                 label_idx += 1
                 if col == 0:
                     ax.text(-0.50, 0.5, row_title, transform=ax.transAxes,
-                            fontsize=52, rotation=90, va='center', ha='center')
+                            fontsize=_FOREST_ROW_LABEL_SIZE, rotation=90, va='center', ha='center')
 
         fig.subplots_adjust(top=0.83, bottom=0.1)
 
         eco_p  = mpatches.Patch(color=_ECO_COLOR,  label='ECOCO3')
         flux_p = mpatches.Patch(color=_FLUX_COLOR, label='FLUXNET')
         sig_p  = plt.Line2D([], [], color='gray', marker='$*$', linestyle='None',
-                            markersize=14, label='* CI excludes 0')
-        fig.legend(handles=[eco_p, flux_p, sig_p], loc='upper right',
-                   frameon=False, bbox_to_anchor=(0.99, 0.92), fontsize=28)
+                            markersize=_STAR_SIZE, label='* CI excludes 0')
+        fig.legend(handles=[eco_p, flux_p, sig_p], loc='upper center',
+                   frameon=False, bbox_to_anchor=(0.5, 0.935), ncol=3, columnspacing=3)
         fig.suptitle(
             'Midday Drought Suppression (95 % Bootstrap CI)\n'
             f'Drought: {index_name} < {drought_threshold}  |  Non-Drought: {index_name} > {nondrought_threshold}',
-            fontsize=57, y=0.995)
+            fontsize=_FOREST_SUPTITLE_SIZE, y=0.995)
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.show()
 
@@ -2094,9 +2143,23 @@ def plot_centroid_shift_summary(
     row_n = [max(df.groupby('Variable').size().max() if len(df) else 1, 1)
              for _, df in SHIFT_GROUPINGS]
 
-    with plt.rc_context(_RCPARAMS):
-        fig = plt.figure(figsize=(30, 30))
-        gs  = fig.add_gridspec(2, 3, hspace=0.6, wspace=0.75, height_ratios=row_n)
+    SCALE = 1.8  # a uniform zoom of the original (30, 30) design -- purely
+                 # geometric (figsize only); every font/line/marker below is
+                 # a fixed value from the shared _FOREST_* constants instead,
+                 # so sizes are identical across every panel of this figure
+                 # and match the other three forest plots exactly
+
+    with plt.rc_context(_FOREST_RCPARAMS):
+        fig = plt.figure(figsize=(30 * SCALE, 30 * SCALE))  # both dimensions scaled
+                                             # together, so every axes-fraction-relative
+                                             # layout (title vs. column width, panel
+                                             # label vs. title, wspace/hspace gaps) keeps
+                                             # its original proportions at the bigger
+                                             # fonts, AND the significance-star glyph (a
+                                             # fixed screen-point size) gets headroom
+                                             # against the row pitch that fixed the
+                                             # original star/row overlap bug
+        gs  = fig.add_gridspec(2, 3, hspace=0.35, wspace=0.75, height_ratios=row_n)
         panel_labels = list('abcdef')
         label_idx = 0
 
@@ -2117,55 +2180,54 @@ def plot_centroid_shift_summary(
                     xerr_f = [[max(r.shift_FLUX - r.ci25_FLUX, 0)],
                               [max(r.ci975_FLUX - r.shift_FLUX, 0)]]
                     ax.errorbar(r.shift_FLUX, y_flux[i], xerr=xerr_f,
-                                fmt='s', color=_FLUX_COLOR, markersize=_MARKER_SIZE,
-                                capsize=_CAP_SIZE, lw=_LINE_WIDTH,
-                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                                fmt='s', color=_FLUX_COLOR, markersize=_FOREST_MARKER_SIZE,
+                                capsize=_FOREST_CAP_SIZE, lw=_FOREST_LINE_WIDTH,
+                                elinewidth=_FOREST_ELINE_WIDTH, capthick=_FOREST_ELINE_WIDTH, zorder=3)
                     s = _sig_star(r.ci25_FLUX, r.ci975_FLUX)
                     if s:
-                        ax.text(r.shift_FLUX, y_flux[i] + 0.22, s,
-                                ha='center', fontsize=_STAR_SIZE, color=_FLUX_COLOR, zorder=4)
+                        ax.annotate(s, (r.shift_FLUX, y_flux[i]), ha='center',
+                                    fontsize=_STAR_SIZE, color=_FLUX_COLOR, zorder=4,
+                                    textcoords='offset points', xytext=(0, 6))
 
                     xerr_e = [[max(r.shift_ECOCO - r.ci25_ECOCO, 0)],
                               [max(r.ci975_ECOCO - r.shift_ECOCO, 0)]]
                     ax.errorbar(r.shift_ECOCO, y_eco[i], xerr=xerr_e,
-                                fmt='o', color=_ECO_COLOR, markersize=_MARKER_SIZE,
-                                capsize=_CAP_SIZE, lw=_LINE_WIDTH,
-                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                                fmt='o', color=_ECO_COLOR, markersize=_FOREST_MARKER_SIZE,
+                                capsize=_FOREST_CAP_SIZE, lw=_FOREST_LINE_WIDTH,
+                                elinewidth=_FOREST_ELINE_WIDTH, capthick=_FOREST_ELINE_WIDTH, zorder=3)
                     s = _sig_star(r.ci25_ECOCO, r.ci975_ECOCO)
                     if s:
-                        ax.text(r.shift_ECOCO, y_eco[i] + 0.22, s,
-                                ha='center', fontsize=_STAR_SIZE, color=_ECO_COLOR, zorder=4)
+                        ax.annotate(s, (r.shift_ECOCO, y_eco[i]), ha='center',
+                                    fontsize=_STAR_SIZE, color=_ECO_COLOR, zorder=4,
+                                    textcoords='offset points', xytext=(0, 6))
 
-                ax.axvline(0, color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
+                ax.axvline(0, color='black', lw=_FOREST_VLINE_WIDTH, ls='--', alpha=0.5)
                 ax.set_yticks(y_flux + 0.35)
                 ax.set_yticklabels(sub['Group'].tolist())
                 ax.set_xlabel('Centroid shift \n [hrs]')
                 ax.set_title(var)
-                ax.grid(axis='x', alpha=0.3, lw=1.5)
+                ax.grid(axis='x', alpha=0.3, lw=_FOREST_GRID_LW)
                 ax.spines[['top', 'right']].set_visible(False)
-                ax.tick_params(axis='both', width=2.2, length=6)
-                ax.tick_params(axis='y', labelsize=max(14, min(32, 380 / n)))
+                ax.tick_params(axis='both', width=_FOREST_TICK_WIDTH, length=_FOREST_TICK_LENGTH)
                 ax.text(-0.15, 1.03, f'({panel_labels[label_idx]})',
-                        transform=ax.transAxes, fontsize=70, fontweight='bold')
+                        transform=ax.transAxes, fontsize=_FOREST_PANEL_LABEL_SIZE, fontweight='bold')
                 label_idx += 1
                 if col == 0:
                     ax.text(-0.50, 0.5, row_title, transform=ax.transAxes,
-                            fontsize=52, rotation=90, va='center', ha='center')
+                            fontsize=_FOREST_ROW_LABEL_SIZE, rotation=90, va='center', ha='center')
 
-        fig.text(0.5, 0.025, '(Drought − Non-Drought)', ha='center', fontsize=40)
-
-        fig.subplots_adjust(top=0.83, bottom=0.15)
+        fig.subplots_adjust(top=0.83, bottom=0.1)
 
         eco_p  = mpatches.Patch(color=_ECO_COLOR,  label='ECOCO3')
         flux_p = mpatches.Patch(color=_FLUX_COLOR, label='FLUXNET')
         sig_p  = plt.Line2D([], [], color='gray', marker='$*$', linestyle='None',
-                            markersize=14, label='* CI excludes 0')
-        fig.legend(handles=[eco_p, flux_p, sig_p], loc='upper right',
-                   frameon=False, bbox_to_anchor=(0.99, 0.92), fontsize=28)
+                            markersize=_STAR_SIZE, label='* CI excludes 0')
+        fig.legend(handles=[eco_p, flux_p, sig_p], loc='upper center',
+                   frameon=False, bbox_to_anchor=(0.5, 0.935), ncol=3, columnspacing=3)
         fig.suptitle(
             'Diurnal Centroid Timing Shift Under Drought (95% Bootstrap CI)\n'
             'Positive = later peak under drought  |  Negative = earlier peak',
-            fontsize=57, y=0.995)
+            fontsize=_FOREST_SUPTITLE_SIZE, y=0.995)
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.show()
 
@@ -2431,13 +2493,13 @@ def compute_seasonal_cycle_metrics(
 _SEASONAL_METRIC_INFO = {
     'offset': dict(
         mean_col='offset_mean', lo_col='offset_ci_low', hi_col='offset_ci_high',
-        ref=0, xlabel='ECOCO3 − FLUXNET [days]',
+        ref=0, xlabel='ECOCO3 − FLUXNET \n [days]',
         suptitle='Seasonal Peak-Timing Offset (95% Bootstrap CI)\n'
                   'Negative = ECOCO3 peaks earlier  |  Positive = ECOCO3 peaks later',
     ),
     'pct_amp_diff': dict(
         mean_col='pct_amp_diff_mean', lo_col='pct_amp_diff_ci_low', hi_col='pct_amp_diff_ci_high',
-        ref=0, xlabel='ECOCO3 vs FLUXNET [%]',
+        ref=0, xlabel='ECOCO3 vs FLUXNET \n [%]',
         suptitle='Seasonal Amplitude Difference (95% Bootstrap CI)\n'
                   'Negative = ECOCO3 amplitude smaller  |  Positive = ECOCO3 amplitude larger',
     ),
@@ -2469,8 +2531,22 @@ def plot_seasonal_offset_summary(
     row_n = [max(per_group[per_group['Grouping'] == g]['Group'].nunique(), 1) + 2
              for _, g in GROUPINGS]
 
-    with plt.rc_context(_RCPARAMS):
-        fig = plt.figure(figsize=(30, 32))
+    SCALE = 1.8  # a uniform zoom of the original (30, 32) design -- purely
+                 # geometric (figsize only); every font/line/marker below is
+                 # a fixed value from the shared _FOREST_* constants instead,
+                 # so sizes are identical across every panel of this figure
+                 # and match the other three forest plots exactly
+
+    with plt.rc_context(_FOREST_RCPARAMS):
+        fig = plt.figure(figsize=(30 * SCALE, 32 * SCALE))  # both dimensions scaled
+                                             # together, so every axes-fraction-relative
+                                             # layout (title vs. column width, panel
+                                             # label vs. title, wspace/hspace gaps) keeps
+                                             # its original proportions at the bigger
+                                             # fonts, AND the significance-star glyph (a
+                                             # fixed screen-point size) gets headroom
+                                             # against the row pitch that fixed the
+                                             # original star/row overlap bug
         gs = fig.add_gridspec(2, 3, hspace=0.4, wspace=0.75, height_ratios=row_n)
         panel_labels = list('abcdef')
         label_idx = 0
@@ -2490,58 +2566,64 @@ def plot_seasonal_offset_summary(
                 y_groups = np.arange(n)
                 y_agg = n + 1.8  # gap above the per-group rows
 
+                # A *data*-unit offset (the old +0.35) shrinks/grows with
+                # how many rows are packed into the panel, so at 12-16 rows
+                # per panel the star ended up rendered past the row above it
+                # instead of over its own point. Anchor the offset in screen
+                # points instead (immune to panel/row-count scaling).
+                star_kw = dict(ha='center', fontsize=_STAR_SIZE,
+                                textcoords='offset points', xytext=(0, 6))
+
                 for i, (_, r) in enumerate(sub.iterrows()):
                     mean, lo, hi = r[info['mean_col']], r[info['lo_col']], r[info['hi_col']]
                     xerr = [[max(mean - lo, 0)], [max(hi - mean, 0)]]
                     ax.errorbar(mean, y_groups[i], xerr=xerr, fmt='o', color=_SEASONAL_POINT_COLOR,
-                                markersize=_MARKER_SIZE, capsize=_CAP_SIZE, lw=_LINE_WIDTH,
-                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=3)
+                                markersize=_FOREST_MARKER_SIZE, capsize=_FOREST_CAP_SIZE, lw=_FOREST_LINE_WIDTH,
+                                elinewidth=_FOREST_ELINE_WIDTH, capthick=_FOREST_ELINE_WIDTH, zorder=3)
                     s = _sig_star(lo - info['ref'], hi - info['ref'])
                     if s:
-                        ax.text(mean, y_groups[i] + 0.35, s, ha='center',
-                                fontsize=_STAR_SIZE, color=_SEASONAL_POINT_COLOR, zorder=4)
+                        ax.annotate(s, (mean, y_groups[i]), color=_SEASONAL_POINT_COLOR,
+                                    zorder=4, **star_kw)
 
                 if var in aggregate.index:
                     a = aggregate.loc[var]
                     amean, alo, ahi = a[info['mean_col']], a[info['lo_col']], a[info['hi_col']]
                     xerr = [[max(amean - alo, 0)], [max(ahi - amean, 0)]]
                     ax.errorbar(amean, y_agg, xerr=xerr, fmt='D', color=_SEASONAL_AGG_COLOR,
-                                markersize=_MARKER_SIZE * 1.15, capsize=_CAP_SIZE, lw=_LINE_WIDTH,
-                                elinewidth=_ELINE_WIDTH, capthick=_ELINE_WIDTH, zorder=5)
+                                markersize=_FOREST_MARKER_SIZE * 1.15, capsize=_FOREST_CAP_SIZE, lw=_FOREST_LINE_WIDTH,
+                                elinewidth=_FOREST_ELINE_WIDTH, capthick=_FOREST_ELINE_WIDTH, zorder=5)
                     s = _sig_star(alo - info['ref'], ahi - info['ref'])
                     if s:
-                        ax.text(amean, y_agg + 0.35, s, ha='center',
-                                fontsize=_STAR_SIZE, color=_SEASONAL_AGG_COLOR, zorder=6)
+                        ax.annotate(s, (amean, y_agg), color=_SEASONAL_AGG_COLOR,
+                                    zorder=6, **star_kw)
 
-                ax.axhline(n + 0.5, color='gray', lw=1.5, ls=':', alpha=0.6)
-                ax.axvline(info['ref'], color='black', lw=_VLINE_WIDTH, ls='--', alpha=0.5)
+                ax.axhline(n + 0.5, color='gray', lw=_FOREST_GRID_LW, ls=':', alpha=0.6)
+                ax.axvline(info['ref'], color='black', lw=_FOREST_VLINE_WIDTH, ls='--', alpha=0.5)
                 ax.set_ylim(-1, y_agg + 1.1)  # headroom above the aggregate point/star, clear of the title
                 ax.set_yticks(list(y_groups) + [y_agg])
                 ax.set_yticklabels(sub['Group'].tolist() + ['ALL GROUPS'])
-                ax.set_xlabel(info['xlabel'], fontsize=30)
+                ax.set_xlabel(info['xlabel'])
                 ax.set_title(var)
-                ax.grid(axis='x', alpha=0.3, lw=1.5)
+                ax.grid(axis='x', alpha=0.3, lw=_FOREST_GRID_LW)
                 ax.spines[['top', 'right']].set_visible(False)
-                ax.tick_params(axis='both', width=2.2, length=6)
-                ax.tick_params(axis='x', labelsize=28)
-                ax.tick_params(axis='y', labelsize=max(14, min(32, 380 / n)))
+                ax.tick_params(axis='both', width=_FOREST_TICK_WIDTH, length=_FOREST_TICK_LENGTH)
                 ax.text(-0.15, 1.03, f'({panel_labels[label_idx]})',
-                        transform=ax.transAxes, fontsize=70, fontweight='bold')
+                        transform=ax.transAxes, fontsize=_FOREST_PANEL_LABEL_SIZE, fontweight='bold')
                 label_idx += 1
                 if col == 0:
                     ax.text(-0.62, 0.5, row_title, transform=ax.transAxes,
-                            fontsize=52, rotation=90, va='center', ha='center')
+                            fontsize=_FOREST_ROW_LABEL_SIZE, rotation=90, va='center', ha='center')
 
         fig.subplots_adjust(top=0.85, bottom=0.1)
 
         group_p = plt.Line2D([], [], color=_SEASONAL_POINT_COLOR, marker='o', linestyle='None',
-                             markersize=18, label='Individual group')
+                             markersize=_FOREST_MARKER_SIZE, label='Individual group')
         agg_p = plt.Line2D([], [], color=_SEASONAL_AGG_COLOR, marker='D', linestyle='None',
-                           markersize=18, label='All groups (pooled)')
+                           markersize=_FOREST_MARKER_SIZE, label='All groups (pooled)')
         sig_p = plt.Line2D([], [], color='gray', marker='$*$', linestyle='None',
-                           markersize=14, label='* CI excludes reference')
-        fig.legend(handles=[group_p, agg_p, sig_p], loc='upper right',
-                   frameon=False, bbox_to_anchor=(0.99, 0.94), fontsize=28)
-        fig.suptitle(info['suptitle'], fontsize=57, y=1.0)
+                           markersize=_STAR_SIZE, label='* CI excludes reference')
+        fig.legend(handles=[group_p, agg_p, sig_p], loc='upper center',
+                   frameon=False, bbox_to_anchor=(0.5, 0.95), ncol=3, columnspacing=3)
+        fig.suptitle(info['suptitle'], fontsize=_FOREST_SUPTITLE_SIZE, y=1.0)
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.show()
